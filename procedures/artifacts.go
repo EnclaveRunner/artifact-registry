@@ -8,13 +8,22 @@ import (
 )
 
 func (s *Server) QueryArtifacts(
-	context.Context,
-	*proto_gen.ArtifactQuery,
+	_ context.Context,
+	query *proto_gen.ArtifactQuery,
 ) (*proto_gen.ArtifactListResponse, error) {
-	// TODO: unimplemented
-	log.Info().Msg("QueryArtifacts called - unimplemented")
+	if s.registry == nil {
+		return &proto_gen.ArtifactListResponse{}, nil
+	}
 
-	return &proto_gen.ArtifactListResponse{}, nil
+	artifacts, err := s.registry.QueryArtifacts(query)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to query artifacts")
+		return nil, err
+	}
+
+	return &proto_gen.ArtifactListResponse{
+		Artifacts: artifacts,
+	}, nil
 }
 
 func (s *Server) PullArtifact(
@@ -28,51 +37,159 @@ func (s *Server) PullArtifact(
 }
 
 func (s *Server) UploadArtifact(
-	context.Context,
-	*proto_gen.UploadArtifactRequest,
+	_ context.Context,
+	req *proto_gen.UploadArtifactRequest,
 ) (*proto_gen.Artifact, error) {
-	// TODO: unimplemented
-	log.Info().Msg("UploadArtifact called - unimplemented")
+	log.Info().
+		Str("source", req.Fqn.Source).
+		Str("author", req.Fqn.Author).
+		Str("name", req.Fqn.Name).
+		Msg("UploadArtifact triggered")
 
-	return &proto_gen.Artifact{}, nil
+	if s.registry == nil {
+		return &proto_gen.Artifact{}, nil
+	}
+
+	// Create artifact from upload request
+	artifact := &proto_gen.Artifact{
+		Fqn:     req.Fqn,
+		Tags:    req.Tags,
+		Content: req.Content,
+	}
+
+	err := s.registry.StoreArtifact(artifact)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to store artifact")
+		return nil, err
+	}
+
+	// Return artifact without content to reduce response size
+	result := *artifact
+	result.Content = nil
+
+	return &result, nil
 }
 
 func (s *Server) DeleteArtifact(
-	context.Context,
-	*proto_gen.ArtifactIdentifier,
+	_ context.Context,
+	id *proto_gen.ArtifactIdentifier,
 ) (*proto_gen.Artifact, error) {
-	// TODO: unimplemented
-	log.Info().Msg("DeleteArtifact called - unimplemented")
+	log.Info().
+		Str("source", id.Fqn.Source).
+		Str("author", id.Fqn.Author).
+		Str("name", id.Fqn.Name).
+		Msg("DeleteArtifact called")
 
-	return &proto_gen.Artifact{}, nil
+	if s.registry == nil {
+		return &proto_gen.Artifact{}, nil
+	}
+
+	artifact, err := s.registry.DeleteArtifact(id)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to delete artifact")
+		return nil, err
+	}
+
+	// Return artifact without content to reduce response size
+	result := *artifact
+	result.Content = nil
+
+	return &result, nil
 }
 
 func (s *Server) GetArtifact(
-	context.Context,
-	*proto_gen.ArtifactIdentifier,
+	_ context.Context,
+	id *proto_gen.ArtifactIdentifier,
 ) (*proto_gen.Artifact, error) {
-	// TODO: unimplemented
-	log.Info().Msg("GetArtifact called - unimplemented")
+	log.Info().
+		Str("source", id.Fqn.Source).
+		Str("author", id.Fqn.Author).
+		Str("name", id.Fqn.Name).
+		Msg("GetArtifact called")
 
-	return &proto_gen.Artifact{}, nil
+	if s.registry == nil {
+		return &proto_gen.Artifact{}, nil
+	}
+
+	artifact, err := s.registry.GetArtifact(id)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to get artifact")
+		return nil, err
+	}
+
+	return artifact, nil
 }
 
 func (s *Server) AddTag(
-	context.Context,
-	*proto_gen.AddRemoveTagRequest,
+	_ context.Context,
+	req *proto_gen.AddRemoveTagRequest,
 ) (*proto_gen.Artifact, error) {
-	// TODO: unimplemented
-	log.Info().Msg("AddTag called - unimplemented")
+	log.Info().
+		Str("source", req.Fqn.Source).
+		Str("author", req.Fqn.Author).
+		Str("name", req.Fqn.Name).
+		Str("tag", req.Tag).
+		Msg("AddTag called")
 
-	return &proto_gen.Artifact{}, nil
+	if s.registry == nil {
+		return &proto_gen.Artifact{}, nil
+	}
+
+	// Check if the registry supports tag management
+	if fsRegistry, ok := s.registry.(interface {
+		AddTag(fqn *proto_gen.FullQualifiedName, versionHash, tag string) error
+	}); ok {
+		err := fsRegistry.AddTag(req.Fqn, req.VersionHash, req.Tag)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to add tag")
+			return nil, err
+		}
+	}
+
+	// Return the artifact
+	id := &proto_gen.ArtifactIdentifier{
+		Fqn: req.Fqn,
+		Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
+			VersionHash: req.VersionHash,
+		},
+	}
+
+	return s.GetArtifact(context.Background(), id)
 }
 
 func (s *Server) RemoveTag(
-	context.Context,
-	*proto_gen.AddRemoveTagRequest,
+	_ context.Context,
+	req *proto_gen.AddRemoveTagRequest,
 ) (*proto_gen.Artifact, error) {
-	// TODO: unimplemented
-	log.Info().Msg("RemoveTag called - unimplemented")
+	log.Info().
+		Str("source", req.Fqn.Source).
+		Str("author", req.Fqn.Author).
+		Str("name", req.Fqn.Name).
+		Str("tag", req.Tag).
+		Msg("RemoveTag called")
 
-	return &proto_gen.Artifact{}, nil
+	if s.registry == nil {
+		return &proto_gen.Artifact{}, nil
+	}
+
+	// Check if the registry supports tag management
+	if fsRegistry, ok := s.registry.(interface {
+		RemoveTag(fqn *proto_gen.FullQualifiedName, tag string) error
+	}); ok {
+		err := fsRegistry.RemoveTag(req.Fqn, req.Tag)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to remove tag")
+			return nil, err
+		}
+	}
+
+	// Return the artifact
+	id := &proto_gen.ArtifactIdentifier{
+		Fqn: req.Fqn,
+		Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
+			VersionHash: req.VersionHash,
+		},
+	}
+
+	return s.GetArtifact(context.Background(), id)
 }
