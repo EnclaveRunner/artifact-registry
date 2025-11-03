@@ -6,7 +6,7 @@ import (
 
 // registry interface defines the methods that any registry implementation must provide
 type registry interface {
-	StoreArtifact(artifact *proto.Artifact) error
+	StoreArtifact(fqn *proto.FullQualifiedName, content []byte) (string, error)
 	GetArtifact(id *proto.ArtifactIdentifier) (*proto.Artifact, error)
 	DeleteArtifact(id *proto.ArtifactIdentifier) (*proto.Artifact, error)
 	QueryArtifacts(query *proto.ArtifactQuery) ([]*proto.Artifact, error)

@@ -50,24 +50,18 @@ func (s *Server) UploadArtifact(
 		return &proto_gen.Artifact{}, nil
 	}
 
-	// Create artifact from upload request
-	artifact := &proto_gen.Artifact{
-		Fqn:     req.Fqn,
-		Tags:    req.Tags,
-		Content: req.Content,
-	}
-
-	err := s.registry.StoreArtifact(artifact)
+	versionHash, err := s.registry.StoreArtifact(req.Fqn, req.Content)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to store artifact")
 		return nil, err
 	}
 
 	// Return artifact without content to reduce response size
-	result := *artifact
-	result.Content = nil
-
-	return &result, nil
+	return &proto_gen.Artifact{
+		Fqn:     req.Fqn,
+		VersionHash: versionHash,
+		Tags:    req.Tags,
+	}, nil
 }
 
 func (s *Server) DeleteArtifact(

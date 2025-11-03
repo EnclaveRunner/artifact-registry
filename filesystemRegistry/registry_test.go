@@ -32,7 +32,7 @@ func TestSimpleFilesystemRegistry(t *testing.T) {
 
 	// Test StoreArtifact
 	t.Run("StoreArtifact", func(t *testing.T) {
-		err := registry.StoreArtifact(artifact)
+		_, err := registry.StoreArtifact(artifact.Fqn, artifact.Content)
 		if err != nil {
 			t.Fatalf("Failed to store artifact: %v", err)
 		}
