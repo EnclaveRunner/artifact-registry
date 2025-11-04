@@ -29,7 +29,7 @@ var Defaults = []enclaveConfig.DefaultValue{
 	{Key: "database.port", Value: 5432},
 	{Key: "database.host", Value: "localhost"},
 	{Key: "database.sslmode", Value: "disable"},
-	{Key: "database.username", Value: "enclave_username"},
+	{Key: "database.username", Value: "enclave_user"},
 	{Key: "database.password", Value: "enclave_password"},
 	{Key: "database.database", Value: "enclave_db"},
 }

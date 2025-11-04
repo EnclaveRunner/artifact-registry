@@ -1,4 +1,4 @@
-package procedures
+package registry
 
 import (
 	"artifact-registry/proto_gen"

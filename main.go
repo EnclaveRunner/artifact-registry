@@ -2,10 +2,10 @@ package main
 
 import (
 	"artifact-registry/config"
-	"artifact-registry/filesystemRegistry"
 	"artifact-registry/orm"
-	"artifact-registry/procedures"
 	proto "artifact-registry/proto_gen"
+	"artifact-registry/registry"
+	"artifact-registry/registry/filesystemRegistry"
 
 	"github.com/EnclaveRunner/shareddeps"
 	"github.com/rs/zerolog/log"
@@ -17,7 +17,7 @@ func main() {
 	orm.InitDB()
 	// Initialize filesystem registry
 	storageDir := filesystemRegistry.GetStorageDir()
-	registry, err := filesystemRegistry.New(storageDir)
+	filesystemRegistry, err := filesystemRegistry.New(storageDir)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize filesystem registry")
 	}
@@ -26,7 +26,7 @@ func main() {
 
 	proto.RegisterRegistryServiceServer(
 		shareddeps.GRPCServer,
-		procedures.NewServer(registry),
+		registry.NewServer(filesystemRegistry),
 	)
 
 	shareddeps.StartGRPCServer()

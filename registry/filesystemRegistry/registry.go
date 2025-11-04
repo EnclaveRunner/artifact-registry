@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -29,7 +28,7 @@ func New(baseDir string) (*FilesystemRegistry, error) {
 
 // getArtifactPath returns the file path for an artifact
 func (r *FilesystemRegistry) getArtifactPath(fqn *proto_gen.FullQualifiedName, versionHash string) string {
-	return filepath.Join(r.baseDir, fqn.Source, fqn.Author, fqn.Name, versionHash+".json")
+	return filepath.Join(r.baseDir, fqn.Source, fqn.Author, fqn.Name, versionHash+".wasm")
 }
 
 // StoreArtifact stores an artifact in the filesystem and its metadata in the database
@@ -39,13 +38,10 @@ func (r *FilesystemRegistry) StoreArtifact(fqn *proto_gen.FullQualifiedName, con
 	versionHash := hex.EncodeToString(hash[:])
 	
 	// store metadata in database
-	orm.DB.Save(
-		&orm.Artifact{
-			Source:   fqn.Source,
-			Author:  fqn.Author,
-			Name:    fqn.Name,
-		},
-	)
+	err := orm.StoreArtifactMeta(fqn, versionHash)
+	if err != nil {
+		return "", fmt.Errorf("failed to store artifact metadata: %w", err)
+	}
 
 	// Create directory structure
 	artifactPath := r.getArtifactPath(fqn, versionHash)
@@ -53,51 +49,33 @@ func (r *FilesystemRegistry) StoreArtifact(fqn *proto_gen.FullQualifiedName, con
 		return "", fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	// Write artifact to file
-	data, err := json.Marshal(content)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal artifact: %w", err)
-	}
-
-	return versionHash, os.WriteFile(artifactPath, data, 0644)
+	return versionHash, os.WriteFile(artifactPath, content, 0644)
 }
 
 // GetArtifact retrieves an artifact by identifier
 func (r *FilesystemRegistry) GetArtifact(id *proto_gen.ArtifactIdentifier) (*proto_gen.Artifact, error) {
-	var versionHash string
-	var query orm.Tag
-
-	query = orm.Tag{
-			Source: id.Fqn.Source,
-			Author: id.Fqn.Author,
-			Name:   id.Fqn.Name,
-			}
+	var artifact *orm.Artifact
+	var err error
 
 	switch identifier := id.Identifier.(type) {
 	case *proto_gen.ArtifactIdentifier_VersionHash:
-		query.Hash = identifier.VersionHash
+		artifact, err = orm.GetArtifactMetaByHash(id.Fqn, identifier.VersionHash)
+		if err != nil {
+			return nil, err
+		}
+
 	case *proto_gen.ArtifactIdentifier_Tag:
-		query.TagName = identifier.Tag
+		artifact, err = orm.GetArtifactMetaByTag(id.Fqn, identifier.Tag)
+		if err != nil {
+			return nil, err
+		}
+
 	default:
 		return nil, fmt.Errorf("invalid identifier type")
 	}
 
-	tagRecord, err := gorm.G[orm.Tag](
-			orm.DB,
-	).Where(&query).Find(context.Background())
-		
-	if err != nil {
-		return nil, gorm.ErrRecordNotFound
-	}
-	// if a fqn + tag combination is not unique, return the first match
-	versionHash = tagRecord[0].Hash
-	tags := []string{}
-	for _, record := range tagRecord {
-		tags = append(tags, record.TagName)
-	}
-
-	artifactPath := r.getArtifactPath(id.Fqn, versionHash)
-	data, err := os.ReadFile(artifactPath)
+	artifactPath := r.getArtifactPath(id.Fqn, artifact.Hash)
+	content, err := os.ReadFile(artifactPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, fmt.Errorf("artifact not found")
@@ -105,15 +83,15 @@ func (r *FilesystemRegistry) GetArtifact(id *proto_gen.ArtifactIdentifier) (*pro
 		return nil, fmt.Errorf("failed to read artifact: %w", err)
 	}
 
-	var content []byte
-	if err := json.Unmarshal(data, &content); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal artifact: %w", err)
+	// Convert []orm.Tag to []string
+	tagNames := make([]string, len(artifact.Tags))
+	for i, tag := range artifact.Tags {
+		tagNames[i] = tag.Name
 	}
-
 	return &proto_gen.Artifact{
 		Fqn:         id.Fqn,
-		VersionHash: versionHash,
-		Tags:         tags,
+		VersionHash: artifact.Hash,
+		Tags:        tagNames,
 		Content:     content,
 	}, nil
 }
@@ -133,23 +111,8 @@ func (r *FilesystemRegistry) DeleteArtifact(id *proto_gen.ArtifactIdentifier) (*
 	}
 
 	// cleanup database records
-	orm.DB.Delete(
-		&orm.Artifact{
-			Source:   id.Fqn.Source,
-			Author: id.Fqn.Author,
-			Name:   id.Fqn.Name,
-			Hash:  artifact.VersionHash,
-		},
-	)
+	orm.DeleteArtifactMeta(id.Fqn, artifact.VersionHash)
 
-	orm.DB.Delete(
-		&orm.Tag{
-			Source:   id.Fqn.Source,
-			Author: id.Fqn.Author,
-			Name:   id.Fqn.Name,
-			Hash:  artifact.VersionHash,
-		},
-	)
 	return artifact, nil
 }
 

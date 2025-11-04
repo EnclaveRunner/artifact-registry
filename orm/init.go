@@ -15,7 +15,7 @@ import (
 
 var DB *gorm.DB
 
-func InitDB() error {
+func InitDB() {
 	dsn := fmt.Sprintf(
 		"host='%s' port='%d' user='%s' password='%s' dbname='%s' sslmode='%s'",
 		config.Cfg.Database.Host,
@@ -37,7 +37,6 @@ func InitDB() error {
 	})
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to connect to the database")
-		return err
 	}
 
 	log.Debug().Msg("Successfully connected to the database")
@@ -46,8 +45,5 @@ func InitDB() error {
 	err = DB.AutoMigrate(&Artifact{}, &Tag{})
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to migrate database")
-		return err
 	}
-
-	return nil
 }

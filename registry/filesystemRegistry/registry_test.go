@@ -1,13 +1,20 @@
 package filesystemRegistry
 
 import (
+	"artifact-registry/orm"
 	"artifact-registry/proto_gen"
 	"os"
 	"testing"
+
+	"artifact-registry/config"
+
+	sharedepsConfig "github.com/EnclaveRunner/shareddeps/config"
 )
 
 func TestSimpleFilesystemRegistry(t *testing.T) {
 	// Create temporary directory for testing
+	sharedepsConfig.LoadAppConfig(config.Cfg, "artifact-registry", "TESTING", config.Defaults...)
+	orm.InitDB()
 	tmpDir, err := os.MkdirTemp("", "registry-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
@@ -27,18 +34,20 @@ func TestSimpleFilesystemRegistry(t *testing.T) {
 			Author: "testuser",
 			Name:   "testapp",
 		},
+		// Precomputed hash for "test content"
+		VersionHash: "6ae8a75555209fd6c44157c0aed8016e763ff435a19cf186f76863140143ff72",
 		Content: []byte("test content"),
 	}
 
 	// Test StoreArtifact
 	t.Run("StoreArtifact", func(t *testing.T) {
-		_, err := registry.StoreArtifact(artifact.Fqn, artifact.Content)
+		versionHash, err := registry.StoreArtifact(artifact.Fqn, artifact.Content)
 		if err != nil {
 			t.Fatalf("Failed to store artifact: %v", err)
 		}
 
 		// Verify version hash was generated
-		if artifact.VersionHash == "" {
+		if versionHash == "" {
 			t.Error("Version hash was not generated")
 		}
 	})
