@@ -24,7 +24,9 @@ func main() {
 		log.Fatal().Err(err).Msg("Failed to initialize filesystem registry")
 	}
 
-	log.Info().Str("storage_dir", storageDir).Msg("Filesystem registry initialized")
+	log.Info().
+		Str("storage_dir", storageDir).
+		Msg("Filesystem registry initialized")
 
 	proto.RegisterRegistryServiceServer(
 		shareddeps.GRPCServer,
