@@ -1,156 +1,102 @@
 package filesystemRegistry
 
 import (
-	"artifact-registry/orm"
 	"artifact-registry/proto_gen"
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"gorm.io/gorm"
 )
 
-// FilesystemRegistry implements the registry interface using simple filesystem storage
+// ErrArtifactNotFound is returned when an artifact is not found
+var ErrArtifactNotFound = errors.New("artifact not found")
+
+// FilesystemRegistry implements the registry interface using simple filesystem
+// storage
 type FilesystemRegistry struct {
 	baseDir string
 }
 
 // New creates a new filesystem-based registry
 func New(baseDir string) (*FilesystemRegistry, error) {
-	if err := os.MkdirAll(baseDir, 0755); err != nil {
+	//nolint:gosec,mnd // Directory permissions 0755 are intentional
+	if err := os.MkdirAll(baseDir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create base directory: %w", err)
 	}
+
 	return &FilesystemRegistry{baseDir: baseDir}, nil
 }
 
-// getArtifactPath returns the file path for an artifact
-func (r *FilesystemRegistry) getArtifactPath(fqn *proto_gen.FullQualifiedName, versionHash string) string {
-	return filepath.Join(r.baseDir, fqn.Source, fqn.Author, fqn.Name, versionHash+".wasm")
-}
-
-// StoreArtifact stores an artifact in the filesystem and its metadata in the database
-func (r *FilesystemRegistry) StoreArtifact(fqn *proto_gen.FullQualifiedName, content []byte) (string, error) {
+// StoreArtifact stores an artifact in the filesystem and returns its version
+// hash
+func (r *FilesystemRegistry) StoreArtifact(
+	fqn *proto_gen.FullQualifiedName,
+	content []byte,
+) (string, error) {
 	// Generate version hash if not provided
 	hash := sha256.Sum256(content)
 	versionHash := hex.EncodeToString(hash[:])
-	
-	// store metadata in database
-	err := orm.StoreArtifactMeta(fqn, versionHash)
-	if err != nil {
-		return "", fmt.Errorf("failed to store artifact metadata: %w", err)
-	}
 
 	// Create directory structure
 	artifactPath := r.getArtifactPath(fqn, versionHash)
-	if err := os.MkdirAll(filepath.Dir(artifactPath), 0755); err != nil {
+
+	//nolint:gosec,mnd // Directory permissions 0755 are intentional
+	if err := os.MkdirAll(filepath.Dir(artifactPath), 0o755); err != nil {
 		return "", fmt.Errorf("failed to create directory: %w", err)
 	}
+	//nolint:mnd // filemode constant
+	if err := os.WriteFile(artifactPath, content, 0o644); err != nil {
+		return versionHash, fmt.Errorf("failed to write file: %w", err)
+	}
 
-	return versionHash, os.WriteFile(artifactPath, content, 0644)
+	return versionHash, nil
 }
 
 // GetArtifact retrieves an artifact by identifier
-func (r *FilesystemRegistry) GetArtifact(id *proto_gen.ArtifactIdentifier) (*proto_gen.Artifact, error) {
-	var artifact *orm.Artifact
-	var err error
-
-	switch identifier := id.Identifier.(type) {
-	case *proto_gen.ArtifactIdentifier_VersionHash:
-		artifact, err = orm.GetArtifactMetaByHash(id.Fqn, identifier.VersionHash)
-		if err != nil {
-			return nil, err
-		}
-
-	case *proto_gen.ArtifactIdentifier_Tag:
-		artifact, err = orm.GetArtifactMetaByTag(id.Fqn, identifier.Tag)
-		if err != nil {
-			return nil, err
-		}
-
-	default:
-		return nil, fmt.Errorf("invalid identifier type")
-	}
-
-	artifactPath := r.getArtifactPath(id.Fqn, artifact.Hash)
+func (r *FilesystemRegistry) GetArtifact(
+	fqn *proto_gen.FullQualifiedName,
+	hash string,
+) ([]byte, error) {
+	artifactPath := r.getArtifactPath(fqn, hash)
+	//nolint:gosec // G304: File path is constructed internally and validated
 	content, err := os.ReadFile(artifactPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("artifact not found")
+			return nil, ErrArtifactNotFound
 		}
+
 		return nil, fmt.Errorf("failed to read artifact: %w", err)
 	}
 
-	// Convert []orm.Tag to []string
-	tagNames := make([]string, len(artifact.Tags))
-	for i, tag := range artifact.Tags {
-		tagNames[i] = tag.Name
-	}
-	return &proto_gen.Artifact{
-		Fqn:         id.Fqn,
-		VersionHash: artifact.Hash,
-		Tags:        tagNames,
-		Content:     content,
-	}, nil
+	return content, nil
 }
 
 // DeleteArtifact deletes an artifact by identifier
-func (r *FilesystemRegistry) DeleteArtifact(id *proto_gen.ArtifactIdentifier) (*proto_gen.Artifact, error) {
-	// First get the artifact to return it
-	artifact, err := r.GetArtifact(id)
-	if err != nil {
-		return nil, err
-	}
-
+func (r *FilesystemRegistry) DeleteArtifact(
+	fqn *proto_gen.FullQualifiedName,
+	hash string,
+) error {
 	// Remove the file
-	artifactPath := r.getArtifactPath(id.Fqn, artifact.VersionHash)
+	artifactPath := r.getArtifactPath(fqn, hash)
 	if err := os.Remove(artifactPath); err != nil {
-		return nil, fmt.Errorf("failed to remove artifact: %w", err)
+		return fmt.Errorf("failed to remove artifact: %w", err)
 	}
 
-	// cleanup database records
-	orm.DeleteArtifactMeta(id.Fqn, artifact.VersionHash)
-
-	return artifact, nil
+	return nil
 }
 
-// QueryArtifacts searches for artifacts
-func (r *FilesystemRegistry) QueryArtifacts(query *proto_gen.ArtifactQuery) ([]*proto_gen.Artifact, error) {
-	var dbQuery orm.Artifact
-
-	if query.Source != nil {
-		dbQuery.Source = *query.Source
-	}
-	if query.Author != nil {
-		dbQuery.Author = *query.Author
-	}
-	if query.Name != nil {
-		dbQuery.Name = *query.Name
-	}
-	artifactRecords, err := gorm.G[orm.Artifact](
-			orm.DB,
-	).Where(&dbQuery).Find(context.Background())
-	if err != nil {
-		return nil, err
-	}
-
-	artifacts := make([]*proto_gen.Artifact, 0, len(artifactRecords))
-	for _, record := range artifactRecords {
-		artifact, err := r.GetArtifact(&proto_gen.ArtifactIdentifier{
-			Fqn: &proto_gen.FullQualifiedName{
-				Source: record.Source,
-				Author: record.Author,
-				Name:   record.Name,
-			},
-			Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
-				VersionHash: record.Hash,
-			},
-		})
-		if err == nil {
-			artifacts = append(artifacts, artifact)
-		}
-	}
-	return artifacts, nil
+// getArtifactPath returns the file path for an artifact
+func (r *FilesystemRegistry) getArtifactPath(
+	fqn *proto_gen.FullQualifiedName,
+	versionHash string,
+) string {
+	return filepath.Join(
+		r.baseDir,
+		fqn.Source,
+		fqn.Author,
+		fqn.Name,
+		versionHash+".wasm",
+	)
 }

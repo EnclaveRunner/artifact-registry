@@ -6,7 +6,7 @@ import (
 
 type AppConfig struct {
 	enclaveConfig.BaseConfig `mapstructure:",squash"`
-	
+
 	StorageDir string `mapstructure:"storage_dir" validate:"omitempty"`
 
 	Database struct {
@@ -17,14 +17,14 @@ type AppConfig struct {
 		Database string `mapstructure:"database" validate:"required"`
 		SSLMode  string `mapstructure:"sslmode"  validate:"oneof=disable require verify-ca verify-full"`
 	} `mapstructure:"database" validate:"required"`
-} 
+}
 
 //nolint:mnd // Default port for gRPC service
 var Defaults = []enclaveConfig.DefaultValue{
 	{Key: "port", Value: 9876},
 	{Key: "log_level", Value: "info"},
 	{Key: "human_readable_output", Value: "true"},
-	{Key: "storage_dir", Value: "./data"},
+	{Key: "storage_dir", Value: "/data"},
 
 	{Key: "database.port", Value: 5432},
 	{Key: "database.host", Value: "localhost"},

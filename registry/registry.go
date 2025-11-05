@@ -4,16 +4,20 @@ import (
 	"artifact-registry/proto_gen"
 )
 
-// Registry interface defines the methods that any registry implementation must provide
+// Registry interface defines the methods that any registry implementation must
+// provide
 type Registry interface {
-	StoreArtifact(fqn *proto_gen.FullQualifiedName, content []byte) (string, error)
-	GetArtifact(id *proto_gen.ArtifactIdentifier) (*proto_gen.Artifact, error)
-	DeleteArtifact(id *proto_gen.ArtifactIdentifier) (*proto_gen.Artifact, error)
-	QueryArtifacts(query *proto_gen.ArtifactQuery) ([]*proto_gen.Artifact, error)
+	StoreArtifact(
+		fqn *proto_gen.FullQualifiedName,
+		content []byte,
+	) (string, error)
+	GetArtifact(fqn *proto_gen.FullQualifiedName, hash string) ([]byte, error)
+	DeleteArtifact(fqn *proto_gen.FullQualifiedName, hash string) error
 }
 
 type Server struct {
 	proto_gen.UnimplementedRegistryServiceServer
+
 	registry Registry
 }
 

@@ -22,6 +22,6 @@ type Tag struct {
 	Source  string `gorm:"primaryKey;size:255;not null" json:"source"`
 	Author  string `gorm:"primaryKey;size:255;not null" json:"author"`
 	Name    string `gorm:"primaryKey;size:255;not null" json:"name"`
-	Hash    string `gorm:"primaryKey;size:64;not null" json:"hash"`
+	Hash    string `gorm:"primaryKey;size:64;not null"  json:"hash"`
 	TagName string `gorm:"primaryKey;size:255;not null" json:"tagName"`
 }

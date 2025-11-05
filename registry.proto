@@ -33,13 +33,12 @@ message Artifact {
     FullQualifiedName fqn = 1;
     string versionHash = 2;
     repeated string tags = 3;
-    bytes content = 4;
-    MetaData metadata = 5;
+    MetaData metadata = 4;
 }
 
 message MetaData {
     google.protobuf.Timestamp created = 1;
-    int32 pulls = 2;
+    int64 pulls = 2;
 }
 
 message ArtifactQuery {
