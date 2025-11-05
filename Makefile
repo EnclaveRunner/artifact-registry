@@ -19,6 +19,9 @@ build:
 	go build
 
 test:
+	docker compose -f docker-compose.test.yml down
+	docker compose -f docker-compose.test.yml up -d
+	sleep 3
 	go test ./registry/...
 	go test ./orm/...
 	go test ./config/...
