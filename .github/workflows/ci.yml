@@ -45,24 +45,6 @@ jobs:
       - name: Build
         run: make build
 
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: "1.25"
-
-      - name: Test
-        run: make test
-
   # This job will only succeed if all other jobs succeed
   all-checks:
     name: All Checks Passed
