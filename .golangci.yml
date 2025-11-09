@@ -9,8 +9,7 @@ formatters:
       # Use stricter formatting than gofmt
       extra-rules: true
 
-    goimports:
-      {}
+    goimports: {}
       # Put imports beginning with prefix after 3rd-party packages
 
     golines:
