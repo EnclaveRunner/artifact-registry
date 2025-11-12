@@ -10,7 +10,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"path/filepath"
+	"path"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -21,6 +22,9 @@ import (
 
 // ErrIncompleteS3Config is returned when the S3 configuration is incomplete
 var ErrIncompleteS3Config = errors.New("incomplete S3 configuration")
+
+// timeout for S3 operations in seconds
+const timeout = 30
 
 // S3Registry implements the registry interface using an s3-backed
 // storage
@@ -34,7 +38,8 @@ func New() (*S3Registry, error) {
 	if config.Cfg.Persistence.S3.AccessKey == "" ||
 		config.Cfg.Persistence.S3.KeyID == "" ||
 		config.Cfg.Persistence.S3.Endpoint == "" ||
-		config.Cfg.Persistence.S3.Region == "" {
+		config.Cfg.Persistence.S3.Region == "" ||
+		config.Cfg.Persistence.S3.Bucket == "" {
 		return nil, fmt.Errorf("%w", ErrIncompleteS3Config)
 	}
 	s3Client := s3.New(s3.Options{
@@ -62,11 +67,14 @@ func (r *S3Registry) StoreArtifact(
 	hash := sha256.Sum256(content)
 	versionHash := hex.EncodeToString(hash[:])
 
-	// Create directory structure
+	// Create directory structure and upload artifact
 	artifactPath := r.getArtifactPath(fqn, versionHash)
 
 	uploader := manager.NewUploader(r.S3Client)
-	result, err := uploader.Upload(context.TODO(), &s3.PutObjectInput{
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout*time.Second)
+	defer cancel()
+	result, err := uploader.Upload(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(config.Cfg.Persistence.S3.Bucket),
 		Key:    aws.String(artifactPath),
 		Body:   bytes.NewReader(content),
@@ -75,16 +83,25 @@ func (r *S3Registry) StoreArtifact(
 		var mu manager.MultiUploadFailure
 		if errors.As(err, &mu) {
 			// Process error and its associated uploadID
-			log.Error().Msg("Error: " + mu.Error() + " id: " + mu.UploadID())
+			log.Error().
+				Err(err).
+				Msg(fmt.Sprintf("multi-upload failure (upload_id: %s): %v", mu.UploadID(), mu))
+
+			return "", fmt.Errorf(
+				"multi-upload failure (upload_id: %s): %w",
+				mu.UploadID(),
+				mu,
+			)
 		} else {
 			// Process error generically
-			log.Error().Msg("Error:" + err.Error())
+			log.Error().Err(err).Msg("upload failure")
+
+			return "", fmt.Errorf("upload failure: %w", err)
 		}
 	}
-	log.Printf(
-		"Successfully uploaded artifact to s3 bucket (%s)\n",
-		result.Location,
-	)
+	log.Info().
+		Str("location", result.Location).
+		Msg("successfully uploaded artifact to s3 bucket")
 
 	return versionHash, nil
 }
@@ -96,7 +113,9 @@ func (r *S3Registry) GetArtifact(
 ) ([]byte, error) {
 	artifactPath := r.getArtifactPath(fqn, hash)
 
-	object, err := r.S3Client.GetObject(context.TODO(), &s3.GetObjectInput{
+	ctx, cancel := context.WithTimeout(context.Background(), timeout*time.Second)
+	defer cancel()
+	object, err := r.S3Client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(config.Cfg.Persistence.S3.Bucket),
 		Key:    aws.String(artifactPath),
 	})
@@ -129,7 +148,9 @@ func (r *S3Registry) DeleteArtifact(
 ) error {
 	artifactPath := r.getArtifactPath(fqn, hash)
 
-	_, err := r.S3Client.DeleteObject(context.TODO(), &s3.DeleteObjectInput{
+	ctx, cancel := context.WithTimeout(context.Background(), timeout*time.Second)
+	defer cancel()
+	_, err := r.S3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(config.Cfg.Persistence.S3.Bucket),
 		Key:    aws.String(artifactPath),
 	})
@@ -145,7 +166,7 @@ func (r *S3Registry) getArtifactPath(
 	fqn *proto_gen.FullQualifiedName,
 	versionHash string,
 ) string {
-	return filepath.Join(
+	return path.Join(
 		fqn.Source,
 		fqn.Author,
 		fqn.Name,

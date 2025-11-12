@@ -37,9 +37,11 @@ func initializeRegistryPersister() registry.Registry {
 		case "s3":
 			registry = initS3Registry()
 		default:
+			log.Warn().Msgf("unknown persistence type '%s', defaulting to filesystem", config.Cfg.Persistence.Type)
 			registry = initFilesystemRegistry()
 	}
-return registry
+
+	return registry
 }
 
 func initFilesystemRegistry() registry.Registry {
@@ -52,8 +54,8 @@ func initFilesystemRegistry() registry.Registry {
 	log.Info().
 		Str("storage_dir", storageDir).
 		Msg("filesystem registry initialized")
-	return fsRegistry
 
+	return fsRegistry
 }
 
 func initS3Registry() registry.Registry {
@@ -63,5 +65,6 @@ func initS3Registry() registry.Registry {
 		log.Fatal().Err(err).Msg("failed to initialize s3 registry")
 	}
 	log.Info().Msg("s3 registry initialized")
+
 	return s3Registry
 }
