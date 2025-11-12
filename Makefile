@@ -1,4 +1,4 @@
-.PHONY: clean verify fmt lint build test help
+.PHONY: clean verify fmt lint build test help proto
 
 # Default target
 all: test
@@ -17,6 +17,9 @@ clean:
 
 build:
 	go build
+
+proto:
+	protoc --go_out=. --go-grpc_out=. registry.proto
 
 test:
 	docker compose -f docker-compose.test.yml down
@@ -45,3 +48,4 @@ help:
 	@echo "  clean         - Clean test cache"
 	@echo "  verify        - Simulate CI Checks before opening a PR"
 	@echo "  help          - Show this help"
+	@echo "  proto         - Generate Go code from protobuf definitions"
