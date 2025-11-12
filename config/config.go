@@ -20,7 +20,7 @@ type AppConfig struct {
 
 	Persistence struct {
 		Type string `mapstructure:"type" validate:"omitempty,oneof=default filesystem s3"`
-		S3 struct {
+		S3   struct {
 			KeyID     string `mapstructure:"key_id"     validate:"required"`
 			AccessKey string `mapstructure:"access_key" validate:"required"`
 			Endpoint  string `mapstructure:"endpoint"   validate:"required,url"`

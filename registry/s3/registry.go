@@ -19,8 +19,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// ErrArtifactNotFound is returned when an artifact is not found
-var ErrArtifactNotFound = errors.New("artifact not found")
+// ErrIncompleteS3Config is returned when the S3 configuration is incomplete
+var ErrIncompleteS3Config = errors.New("incomplete S3 configuration")
 
 // S3Registry implements the registry interface using an s3-backed
 // storage
@@ -35,19 +35,19 @@ func New() (*S3Registry, error) {
 		config.Cfg.Persistence.S3.KeyID == "" ||
 		config.Cfg.Persistence.S3.Endpoint == "" ||
 		config.Cfg.Persistence.S3.Region == "" {
-		return nil, fmt.Errorf("incomplete S3 configuration")
+		return nil, fmt.Errorf("%w", ErrIncompleteS3Config)
 	}
 	s3Client := s3.New(s3.Options{
-        BaseEndpoint: aws.String(config.Cfg.Persistence.S3.Endpoint),
-        Region: config.Cfg.Persistence.S3.Region,
-        Credentials: aws.NewCredentialsCache(
-            credentials.NewStaticCredentialsProvider(
-                config.Cfg.Persistence.S3.KeyID,
-                config.Cfg.Persistence.S3.AccessKey,
-                "",
-            ),
-        ),
-    })
+		BaseEndpoint: aws.String(config.Cfg.Persistence.S3.Endpoint),
+		Region:       config.Cfg.Persistence.S3.Region,
+		Credentials: aws.NewCredentialsCache(
+			credentials.NewStaticCredentialsProvider(
+				config.Cfg.Persistence.S3.KeyID,
+				config.Cfg.Persistence.S3.AccessKey,
+				"",
+			),
+		),
+	})
 
 	return &S3Registry{S3Client: s3Client}, nil
 }
@@ -81,7 +81,10 @@ func (r *S3Registry) StoreArtifact(
 			log.Error().Msg("Error:" + err.Error())
 		}
 	}
-	log.Printf("Successfully uploaded artifact to s3 bucket (%s)\n", result.Location)
+	log.Printf(
+		"Successfully uploaded artifact to s3 bucket (%s)\n",
+		result.Location,
+	)
 
 	return versionHash, nil
 }
@@ -103,7 +106,11 @@ func (r *S3Registry) GetArtifact(
 
 	var content []byte
 	if object.Body != nil {
-		defer object.Body.Close()
+		defer func() {
+			if cerr := object.Body.Close(); cerr != nil {
+				log.Error().Err(cerr).Msg("failed to close S3 object body")
+			}
+		}()
 		content, err = io.ReadAll(object.Body)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read artifact content: %w", err)
@@ -126,7 +133,6 @@ func (r *S3Registry) DeleteArtifact(
 		Bucket: aws.String(config.Cfg.Persistence.S3.Bucket),
 		Key:    aws.String(artifactPath),
 	})
-
 	if err != nil {
 		return fmt.Errorf("failed to delete artifact from S3: %w", err)
 	}
