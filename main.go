@@ -30,18 +30,18 @@ func main() {
 }
 
 func initializeRegistryPersister() registry.Registry {
-	var registry registry.Registry
+	var reg registry.Registry
 	switch config.Cfg.Persistence.Type {
-		case "filesystem":
-			registry = initFilesystemRegistry()
-		case "s3":
-			registry = initS3Registry()
-		default:
-			log.Warn().Msgf("unknown persistence type '%s', defaulting to filesystem", config.Cfg.Persistence.Type)
-			registry = initFilesystemRegistry()
+	case "filesystem":
+		reg = initFilesystemRegistry()
+	case "s3":
+		reg = initS3Registry()
+	default:
+		log.Warn().Msgf("unknown persistence type '%s', defaulting to filesystem", config.Cfg.Persistence.Type)
+		reg = initFilesystemRegistry()
 	}
-
-	return registry
+	
+	return reg
 }
 
 func initFilesystemRegistry() registry.Registry {
