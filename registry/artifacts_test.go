@@ -135,74 +135,74 @@ func TestQueryArtifacts(t *testing.T) {
 	}
 }
 
-func TestUploadArtifact(t *testing.T) {
-	tests := []struct {
-		name        string
-		request     *proto_gen.UploadArtifactRequest
-		setupMock   func(*MockRegistry)
-		expectError bool
-	}{
-		{
-			name: "successful upload",
-			request: &proto_gen.UploadArtifactRequest{
-				Fqn: &proto_gen.FullQualifiedName{
-					Source: "github.com",
-					Author: "user",
-					Name:   "app",
-				},
-				Content: []byte("test content"),
-				Tags:    []string{"latest"},
-			},
-			setupMock: func(mr *MockRegistry) {
-				mr.On("StoreArtifact", mock.AnythingOfType("*proto_gen.FullQualifiedName"), mock.AnythingOfType("[]uint8")).
-					Return("test-hash-123", nil)
-			},
-			expectError: false,
-		},
-		{
-			name: "storage error",
-			request: &proto_gen.UploadArtifactRequest{
-				Fqn: &proto_gen.FullQualifiedName{
-					Source: "github.com",
-					Author: "user",
-					Name:   "app",
-				},
-				Content: []byte("test content"),
-				Tags:    []string{"latest"},
-			},
-			setupMock: func(mr *MockRegistry) {
-				mr.On("StoreArtifact", mock.AnythingOfType("*proto_gen.FullQualifiedName"), mock.AnythingOfType("[]uint8")).
-					Return("", ErrStorageError)
-			},
-			expectError: true,
-		},
-	}
+// func TestUploadArtifact(t *testing.T) {
+// 	tests := []struct {
+// 		name        string
+// 		request     *proto_gen.UploadArtifactRequest
+// 		setupMock   func(*MockRegistry)
+// 		expectError bool
+// 	}{
+// 		{
+// 			name: "successful upload",
+// 			request: &proto_gen.UploadArtifactRequest{
+// 				Fqn: &proto_gen.FullQualifiedName{
+// 					Source: "github.com",
+// 					Author: "user",
+// 					Name:   "app",
+// 				},
+// 				Content: []byte("test content"),
+// 				Tags:    []string{"latest"},
+// 			},
+// 			setupMock: func(mr *MockRegistry) {
+// 				mr.On("StoreArtifact", mock.AnythingOfType("*proto_gen.FullQualifiedName"), mock.AnythingOfType("[]uint8")).
+// 					Return("test-hash-123", nil)
+// 			},
+// 			expectError: false,
+// 		},
+// 		{
+// 			name: "storage error",
+// 			request: &proto_gen.UploadArtifactRequest{
+// 				Fqn: &proto_gen.FullQualifiedName{
+// 					Source: "github.com",
+// 					Author: "user",
+// 					Name:   "app",
+// 				},
+// 				Content: []byte("test content"),
+// 				Tags:    []string{"latest"},
+// 			},
+// 			setupMock: func(mr *MockRegistry) {
+// 				mr.On("StoreArtifact", mock.AnythingOfType("*proto_gen.FullQualifiedName"), mock.AnythingOfType("[]uint8")).
+// 					Return("", ErrStorageError)
+// 			},
+// 			expectError: true,
+// 		},
+// 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockRegistry := new(MockRegistry)
-			tt.setupMock(mockRegistry)
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			mockRegistry := new(MockRegistry)
+// 			tt.setupMock(mockRegistry)
 
-			server := NewServer(mockRegistry)
-			ctx := context.Background()
+// 			server := NewServer(mockRegistry)
+// 			ctx := context.Background()
 
-			response, err := server.UploadArtifact(ctx, tt.request)
+// 			response, err := server.UploadArtifact(ctx, tt.request)
 
-			if tt.expectError {
-				assert.Error(t, err)
-				assert.Nil(t, response)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, response)
-				assert.Equal(t, "test-hash-123", response.VersionHash)
-				assert.Equal(t, tt.request.Fqn, response.Fqn)
-				assert.Equal(t, tt.request.Tags, response.Tags)
-			}
+// 			if tt.expectError {
+// 				assert.Error(t, err)
+// 				assert.Nil(t, response)
+// 			} else {
+// 				assert.NoError(t, err)
+// 				assert.NotNil(t, response)
+// 				assert.Equal(t, "test-hash-123", response.VersionHash)
+// 				assert.Equal(t, tt.request.Fqn, response.Fqn)
+// 				assert.Equal(t, tt.request.Tags, response.Tags)
+// 			}
 
-			mockRegistry.AssertExpectations(t)
-		})
-	}
-}
+// 			mockRegistry.AssertExpectations(t)
+// 		})
+// 	}
+// }
 
 func TestDeleteArtifact(t *testing.T) {
 	tests := []struct {

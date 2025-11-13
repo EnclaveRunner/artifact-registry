@@ -15,6 +15,8 @@ type Registry interface {
 	DeleteArtifact(fqn *proto_gen.FullQualifiedName, hash string) error
 }
 
+var _ proto_gen.RegistryServiceServer = (*Server)(nil)
+
 type Server struct {
 	proto_gen.UnimplementedRegistryServiceServer
 

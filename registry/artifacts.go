@@ -4,8 +4,11 @@ import (
 	"artifact-registry/orm"
 	"artifact-registry/proto_gen"
 	"context"
+	"io"
 
 	"github.com/rs/zerolog/log"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -173,26 +176,62 @@ func (s *Server) PullArtifact(
 	return nil
 }
 
-func (s *Server) UploadArtifact(
-	_ context.Context,
-	req *proto_gen.UploadArtifactRequest,
-) (*proto_gen.Artifact, error) {
-	log.Info().
-		Str("source", req.Fqn.Source).
-		Str("author", req.Fqn.Author).
-		Str("name", req.Fqn.Name).
-		Msg("UploadArtifact triggered")
+func (s *Server) UploadArtifact(stream grpc.ClientStreamingServer[proto_gen.UploadArtifactRequest, proto_gen.Artifact]) error {
+	firstMessage, err := stream.Recv()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to receive first upload artifact message")
 
-	if s.registry == nil {
-		return nil, newRegistryUnavailableError("artifact upload")
+		return wrapServiceError(err, "receiving first upload artifact message")
+	}
+	
+	metadata := firstMessage.GetMetadata()
+	if metadata == nil {
+		log.Error().Msg("UploadArtifactRequest missing metadata")
+
+		return &ServiceError{
+			Code:    codes.InvalidArgument,
+			Message: "Expected first message to be metadata",
+		}
+	}
+	
+	log.Info().
+		Str("source", metadata.Fqn.Source).
+		Str("author", metadata.Fqn.Author).
+		Str("name", metadata.Fqn.Name).
+		Msg("UploadArtifact triggered")
+	
+	
+	// TODO: Implement stream writing to registry backend
+	var content []byte
+	
+	for {
+		message, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to receive upload artifact message")
+			
+			return wrapServiceError(err, "receiving upload artifact message")
+		}
+		
+		chunk := message.GetContent().Data
+		content = append(content, chunk...)		
 	}
 
-	versionHash, err := s.registry.StoreArtifact(req.Fqn, req.Content)
+	if s.registry == nil {
+		return newRegistryUnavailableError("artifact upload")
+	}
+
+	versionHash, err := s.registry.StoreArtifact(metadata.Fqn, content)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to store artifact")
 
-		return nil, wrapServiceError(err, "storing artifact")
+		return wrapServiceError(err, "storing artifact")
 	}
+	
+	stream.
 
 	return &proto_gen.Artifact{
 		Fqn:         req.Fqn,
