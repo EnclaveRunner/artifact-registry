@@ -26,6 +26,7 @@ type AppConfig struct {
 			Endpoint  string `mapstructure:"endpoint"   validate:"required,url"`
 			Region    string `mapstructure:"region"     validate:"required"`
 			Bucket    string `mapstructure:"bucket"     validate:"required"`
+			Timeout   string `mapstructure:"timeout"    validate:"ommitempty"`
 		} `mapstructure:"s3" validate:"omitempty"`
 	} `mapstructure:"persistence" validate:"omitempty"`
 }
