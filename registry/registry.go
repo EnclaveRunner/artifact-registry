@@ -8,11 +8,11 @@ import (
 // provide
 type Registry interface {
 	StoreArtifact(
-		fqn *proto_gen.FullQualifiedName,
+		fqn *proto_gen.FullyQualifiedName,
 		content []byte,
 	) (string, error)
-	GetArtifact(fqn *proto_gen.FullQualifiedName, hash string) ([]byte, error)
-	DeleteArtifact(fqn *proto_gen.FullQualifiedName, hash string) error
+	GetArtifact(fqn *proto_gen.FullyQualifiedName, hash string) ([]byte, error)
+	DeleteArtifact(fqn *proto_gen.FullyQualifiedName, hash string) error
 }
 
 var _ proto_gen.RegistryServiceServer = (*Server)(nil)

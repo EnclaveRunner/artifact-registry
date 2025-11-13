@@ -14,11 +14,11 @@ var (
 	ErrEmptyVersionHash  = errors.New("versionHash cannot be empty")
 )
 
-func validateFQN(fqn *proto_gen.FullQualifiedName) error {
+func validateFQN(fqn *proto_gen.FullyQualifiedName) error {
 	if fqn == nil || fqn.Source == "" || fqn.Author == "" || fqn.Name == "" {
 		return &ServiceError{
 			Code:    codes.InvalidArgument,
-			Message: "FullQualifiedName must have source, author, and name",
+			Message: "FullyQualifiedName must have source, author, and name",
 			Inner:   ErrInvalidIdentifier,
 		}
 	}

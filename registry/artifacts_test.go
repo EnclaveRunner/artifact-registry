@@ -21,7 +21,7 @@ type MockRegistry struct {
 }
 
 func (m *MockRegistry) StoreArtifact(
-	fqn *proto_gen.FullQualifiedName,
+	fqn *proto_gen.FullyQualifiedName,
 	content []byte,
 ) (string, error) {
 	args := m.Called(fqn, content)
@@ -30,7 +30,7 @@ func (m *MockRegistry) StoreArtifact(
 }
 
 func (m *MockRegistry) GetArtifact(
-	fqn *proto_gen.FullQualifiedName,
+	fqn *proto_gen.FullyQualifiedName,
 	hash string,
 ) ([]byte, error) {
 	args := m.Called(fqn, hash)
@@ -58,7 +58,7 @@ func (m *MockRegistry) GetArtifact(
 }
 
 func (m *MockRegistry) DeleteArtifact(
-	fqn *proto_gen.FullQualifiedName,
+	fqn *proto_gen.FullyQualifiedName,
 	hash string,
 ) error {
 	args := m.Called(fqn, hash)
@@ -145,7 +145,7 @@ func TestQueryArtifacts(t *testing.T) {
 // 		{
 // 			name: "successful upload",
 // 			request: &proto_gen.UploadArtifactRequest{
-// 				Fqn: &proto_gen.FullQualifiedName{
+// 				Fqn: &proto_gen.FullyQualifiedName{
 // 					Source: "github.com",
 // 					Author: "user",
 // 					Name:   "app",
@@ -155,7 +155,7 @@ func TestQueryArtifacts(t *testing.T) {
 // 			},
 // 			setupMock: func(mr *MockRegistry) {
 // 				mr.On("StoreArtifact",
-// mock.AnythingOfType("*proto_gen.FullQualifiedName"),
+// mock.AnythingOfType("*proto_gen.FullyQualifiedName"),
 // mock.AnythingOfType("[]uint8")).
 // 					Return("test-hash-123", nil)
 // 			},
@@ -164,7 +164,7 @@ func TestQueryArtifacts(t *testing.T) {
 // 		{
 // 			name: "storage error",
 // 			request: &proto_gen.UploadArtifactRequest{
-// 				Fqn: &proto_gen.FullQualifiedName{
+// 				Fqn: &proto_gen.FullyQualifiedName{
 // 					Source: "github.com",
 // 					Author: "user",
 // 					Name:   "app",
@@ -174,7 +174,7 @@ func TestQueryArtifacts(t *testing.T) {
 // 			},
 // 			setupMock: func(mr *MockRegistry) {
 // 				mr.On("StoreArtifact",
-// mock.AnythingOfType("*proto_gen.FullQualifiedName"),
+// mock.AnythingOfType("*proto_gen.FullyQualifiedName"),
 // mock.AnythingOfType("[]uint8")).
 // 					Return("", ErrStorageError)
 // 			},
@@ -218,7 +218,7 @@ func TestDeleteArtifact(t *testing.T) {
 		{
 			name: "successful deletion by hash",
 			id: &proto_gen.ArtifactIdentifier{
-				Fqn: &proto_gen.FullQualifiedName{
+				Fqn: &proto_gen.FullyQualifiedName{
 					Source: "github.com",
 					Author: "user",
 					Name:   "app",
@@ -262,7 +262,7 @@ func TestGetArtifact(t *testing.T) {
 		{
 			name: "get artifact by hash",
 			id: &proto_gen.ArtifactIdentifier{
-				Fqn: &proto_gen.FullQualifiedName{
+				Fqn: &proto_gen.FullyQualifiedName{
 					Source: "github.com",
 					Author: "user",
 					Name:   "app",
@@ -299,7 +299,7 @@ func TestAddTag(t *testing.T) {
 		{
 			name: "add tag to artifact",
 			request: &proto_gen.AddRemoveTagRequest{
-				Fqn: &proto_gen.FullQualifiedName{
+				Fqn: &proto_gen.FullyQualifiedName{
 					Source: "github.com",
 					Author: "user",
 					Name:   "app",
@@ -335,7 +335,7 @@ func TestRemoveTag(t *testing.T) {
 		{
 			name: "remove tag from artifact",
 			request: &proto_gen.AddRemoveTagRequest{
-				Fqn: &proto_gen.FullQualifiedName{
+				Fqn: &proto_gen.FullyQualifiedName{
 					Source: "github.com",
 					Author: "user",
 					Name:   "app",

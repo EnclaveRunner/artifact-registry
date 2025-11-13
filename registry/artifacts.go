@@ -35,7 +35,7 @@ func (s *Server) QueryArtifacts(
 		return &proto_gen.ArtifactListResponse{}, nil
 	}
 
-	fqn := &proto_gen.FullQualifiedName{}
+	fqn := &proto_gen.FullyQualifiedName{}
 	if query.Source != nil {
 		fqn.Source = *query.Source
 	}
@@ -57,7 +57,7 @@ func (s *Server) QueryArtifacts(
 	protoArtifacts := make([]*proto_gen.Artifact, 0, len(artifacts))
 	for _, a := range artifacts {
 		protoArtifacts = append(protoArtifacts, &proto_gen.Artifact{
-			Fqn: &proto_gen.FullQualifiedName{
+			Fqn: &proto_gen.FullyQualifiedName{
 				Source: a.Source,
 				Author: a.Author,
 				Name:   a.Name,
@@ -374,7 +374,7 @@ func (s *Server) DeleteArtifact(
 	}
 
 	result := &proto_gen.Artifact{
-		Fqn: &proto_gen.FullQualifiedName{
+		Fqn: &proto_gen.FullyQualifiedName{
 			Source: artifactMeta.Source,
 			Author: artifactMeta.Author,
 			Name:   artifactMeta.Name,
@@ -419,7 +419,7 @@ func (s *Server) GetArtifact(
 	}
 
 	return &proto_gen.Artifact{
-		Fqn: &proto_gen.FullQualifiedName{
+		Fqn: &proto_gen.FullyQualifiedName{
 			Source: artifactMeta.Source,
 			Author: artifactMeta.Author,
 			Name:   artifactMeta.Name,
