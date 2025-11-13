@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-const ChunkSize = 1024 * 1024 * 3 // 4MB
+const ChunkSize = 1024 * 1024 * 3 // 3MB
 
 func (s *Server) QueryArtifacts(
 	ctx context.Context,
