@@ -1,4 +1,4 @@
-// nolint
+//nolint:paralleltest // Currently not supported (should so in the future)
 package registry
 
 import (
