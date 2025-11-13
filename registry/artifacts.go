@@ -4,6 +4,7 @@ import (
 	"artifact-registry/orm"
 	"artifact-registry/proto_gen"
 	"context"
+	"errors"
 	"io"
 
 	"github.com/rs/zerolog/log"
@@ -11,6 +12,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+const ChunkSize = 1024 * 1024 * 3 // 4MB
 
 func (s *Server) QueryArtifacts(
 	ctx context.Context,
@@ -125,20 +128,16 @@ func (s *Server) PullArtifact(
 	versionHash := artifactMeta.Hash
 
 	// Stream the artifact content back to the client in chunks
-	const chunkSize = 64 * 1024 // 64KB chunks
 	totalSize := len(content)
 
 	log.Info().
 		Str("versionHash", versionHash).
 		Int("totalSize", totalSize).
-		Int("chunkSize", chunkSize).
+		Int("chunkSize", ChunkSize).
 		Msg("Starting to stream artifact content")
 
-	for offset := 0; offset < totalSize; offset += chunkSize {
-		end := offset + chunkSize
-		if end > totalSize {
-			end = totalSize
-		}
+	for offset := 0; offset < totalSize; offset += ChunkSize {
+		end := min(offset+ChunkSize, totalSize)
 
 		chunk := content[offset:end]
 		response := &proto_gen.ArtifactContent{
@@ -165,7 +164,7 @@ func (s *Server) PullArtifact(
 	log.Info().
 		Str("versionHash", versionHash).
 		Int("totalSize", totalSize).
-		Int("chunksCount", (totalSize+chunkSize-1)/chunkSize).
+		Int("chunksCount", (totalSize+ChunkSize-1)/ChunkSize).
 		Msg("Successfully streamed complete artifact")
 
 	// Increment pull count
@@ -176,14 +175,16 @@ func (s *Server) PullArtifact(
 	return nil
 }
 
-func (s *Server) UploadArtifact(stream grpc.ClientStreamingServer[proto_gen.UploadArtifactRequest, proto_gen.Artifact]) error {
+func (s *Server) UploadArtifact(
+	stream grpc.ClientStreamingServer[proto_gen.UploadArtifactRequest, proto_gen.Artifact],
+) error {
 	firstMessage, err := stream.Recv()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to receive first upload artifact message")
 
 		return wrapServiceError(err, "receiving first upload artifact message")
 	}
-	
+
 	metadata := firstMessage.GetMetadata()
 	if metadata == nil {
 		log.Error().Msg("UploadArtifactRequest missing metadata")
@@ -193,31 +194,41 @@ func (s *Server) UploadArtifact(stream grpc.ClientStreamingServer[proto_gen.Uplo
 			Message: "Expected first message to be metadata",
 		}
 	}
-	
+
 	log.Info().
 		Str("source", metadata.Fqn.Source).
 		Str("author", metadata.Fqn.Author).
 		Str("name", metadata.Fqn.Name).
 		Msg("UploadArtifact triggered")
-	
-	
+
+	//nolint:godox // Will be implemented by other PRs
 	// TODO: Implement stream writing to registry backend
 	var content []byte
-	
+
 	for {
 		message, err := stream.Recv()
-		if err == io.EOF {
+		log.Debug().Msg("Read chunk from upload stream")
+		if errors.Is(err, io.EOF) {
 			break
 		}
-		
+
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to receive upload artifact message")
-			
+
 			return wrapServiceError(err, "receiving upload artifact message")
 		}
-		
-		chunk := message.GetContent().Data
-		content = append(content, chunk...)		
+
+		chunk := message.GetContent()
+		if chunk == nil {
+			log.Error().Msg("UploadArtifactRequest missing content chunk")
+
+			return &ServiceError{
+				Code:    codes.InvalidArgument,
+				Message: "Expected content chunk in upload artifact message",
+			}
+		}
+
+		content = append(content, chunk.Data...)
 	}
 
 	if s.registry == nil {
@@ -230,14 +241,61 @@ func (s *Server) UploadArtifact(stream grpc.ClientStreamingServer[proto_gen.Uplo
 
 		return wrapServiceError(err, "storing artifact")
 	}
-	
-	stream.
 
-	return &proto_gen.Artifact{
-		Fqn:         req.Fqn,
+	err = orm.StoreArtifactMeta(metadata.Fqn, versionHash)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to store artifact metadata")
+
+		return wrapServiceError(err, "storing artifact metadata")
+	}
+
+	// Add tags to the artifact
+	for _, tag := range metadata.Tags {
+		err = orm.AddTag(stream.Context(), metadata.Fqn, versionHash, tag)
+		if err != nil {
+			log.Error().
+				Err(err).
+				Str("tag", tag).
+				Msg("Failed to add tag to artifact")
+
+			return wrapServiceError(err, "adding tag to artifact")
+		}
+	}
+
+	artifact, err := orm.GetArtifactMetaByHash(
+		stream.Context(),
+		metadata.Fqn,
+		versionHash,
+	)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to retrieve stored artifact metadata")
+
+		return wrapServiceError(err, "retrieving stored artifact metadata")
+	}
+
+	log.Info().
+		Str("source", artifact.Source).
+		Str("author", artifact.Author).
+		Str("name", artifact.Name).
+		Str("versionHash", versionHash).
+		Msg("Artifact uploaded successfully")
+
+	err = stream.SendAndClose(&proto_gen.Artifact{
+		Fqn:         metadata.Fqn,
 		VersionHash: versionHash,
-		Tags:        req.Tags,
-	}, nil
+		Tags:        metadata.Tags,
+		Metadata: &proto_gen.MetaData{
+			Created: timestamppb.New(artifact.CreatedAt),
+			Pulls:   artifact.PullsCount,
+		},
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to send upload artifact response")
+
+		return wrapServiceError(err, "sending upload artifact response")
+	}
+
+	return nil
 }
 
 func (s *Server) DeleteArtifact(

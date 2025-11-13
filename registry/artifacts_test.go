@@ -1,4 +1,4 @@
-//nolint
+// nolint
 package registry
 
 import (
@@ -154,7 +154,9 @@ func TestQueryArtifacts(t *testing.T) {
 // 				Tags:    []string{"latest"},
 // 			},
 // 			setupMock: func(mr *MockRegistry) {
-// 				mr.On("StoreArtifact", mock.AnythingOfType("*proto_gen.FullQualifiedName"), mock.AnythingOfType("[]uint8")).
+// 				mr.On("StoreArtifact",
+// mock.AnythingOfType("*proto_gen.FullQualifiedName"),
+// mock.AnythingOfType("[]uint8")).
 // 					Return("test-hash-123", nil)
 // 			},
 // 			expectError: false,
@@ -171,7 +173,9 @@ func TestQueryArtifacts(t *testing.T) {
 // 				Tags:    []string{"latest"},
 // 			},
 // 			setupMock: func(mr *MockRegistry) {
-// 				mr.On("StoreArtifact", mock.AnythingOfType("*proto_gen.FullQualifiedName"), mock.AnythingOfType("[]uint8")).
+// 				mr.On("StoreArtifact",
+// mock.AnythingOfType("*proto_gen.FullQualifiedName"),
+// mock.AnythingOfType("[]uint8")).
 // 					Return("", ErrStorageError)
 // 			},
 // 			expectError: true,

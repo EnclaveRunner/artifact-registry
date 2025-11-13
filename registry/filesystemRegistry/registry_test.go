@@ -1,4 +1,4 @@
-//nolint
+// nolint
 package filesystemRegistry
 
 import (
