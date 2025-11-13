@@ -35,6 +35,7 @@ verify:
 	@echo "Running CI tests..."
 	make lint
 	make build
+	make fmt
 	make test
 	make clean
 	@echo "✅ CI Test will pass, you are ready to commit / open the PR! Thank you for your contribution :)"

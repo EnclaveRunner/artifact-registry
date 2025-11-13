@@ -37,10 +37,11 @@ func initializeRegistryPersister() registry.Registry {
 	case "s3":
 		reg = initS3Registry()
 	default:
-		log.Warn().Msgf("unknown persistence type '%s', defaulting to filesystem", config.Cfg.Persistence.Type)
+		log.Warn().
+			Msgf("unknown persistence type '%s', defaulting to filesystem", config.Cfg.Persistence.Type)
 		reg = initFilesystemRegistry()
 	}
-	
+
 	return reg
 }
 
