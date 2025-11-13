@@ -2,6 +2,7 @@ package registry
 
 import (
 	"artifact-registry/orm"
+	"artifact-registry/proto_gen"
 	"errors"
 
 	"google.golang.org/grpc/codes"
@@ -73,6 +74,18 @@ func wrapServiceError(err error, operation string) error {
 		Message: "Internal server error during " + operation,
 		Inner:   err,
 	}
+}
+
+func validateFQN(fqn *proto_gen.FullQualifiedName) error {
+	if fqn == nil || fqn.Source == "" || fqn.Author == "" || fqn.Name == "" {
+		return &ServiceError{
+			Code:    codes.InvalidArgument,
+			Message: "FullQualifiedName must have source, author, and name",
+			Inner:   ErrInvalidIdentifier,
+		}
+	}
+
+	return nil
 }
 
 // Common error constructors for specific operations

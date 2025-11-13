@@ -80,6 +80,13 @@ func (s *Server) PullArtifact(
 	req *proto_gen.PullArtifactRequest,
 	serv proto_gen.RegistryService_PullArtifactServer,
 ) error {
+	err := validateFQN(req.Fqn)
+	if err != nil {
+		log.Error().Err(err).Msg("Invalid FQN in PullArtifactRequest")
+
+		return err
+	}
+
 	log.Info().
 		Str("source", req.Fqn.Source).
 		Str("author", req.Fqn.Author).
@@ -93,7 +100,6 @@ func (s *Server) PullArtifact(
 	}
 
 	var artifactMeta *orm.Artifact
-	var err error
 
 	switch identifier := req.Identifier.(type) {
 	case *proto_gen.PullArtifactRequest_VersionHash:
@@ -193,6 +199,13 @@ func (s *Server) UploadArtifact(
 			Code:    codes.InvalidArgument,
 			Message: "Expected first message to be metadata",
 		}
+	}
+
+	err = validateFQN(metadata.Fqn)
+	if err != nil {
+		log.Error().Err(err).Msg("Invalid FQN in UploadArtifactRequest metadata")
+
+		return err
 	}
 
 	log.Info().
@@ -302,6 +315,13 @@ func (s *Server) DeleteArtifact(
 	ctx context.Context,
 	id *proto_gen.ArtifactIdentifier,
 ) (*proto_gen.Artifact, error) {
+	err := validateFQN(id.Fqn)
+	if err != nil {
+		log.Error().Err(err).Msg("Invalid FQN in DeleteArtifact request")
+
+		return nil, err
+	}
+
 	log.Info().
 		Str("source", id.Fqn.Source).
 		Str("author", id.Fqn.Author).
@@ -350,6 +370,13 @@ func (s *Server) GetArtifact(
 	ctx context.Context,
 	id *proto_gen.ArtifactIdentifier,
 ) (*proto_gen.Artifact, error) {
+	err := validateFQN(id.Fqn)
+	if err != nil {
+		log.Error().Err(err).Msg("Invalid FQN in GetArtifact request")
+
+		return nil, err
+	}
+
 	log.Info().
 		Str("source", id.Fqn.Source).
 		Str("author", id.Fqn.Author).
@@ -386,6 +413,13 @@ func (s *Server) AddTag(
 	ctx context.Context,
 	req *proto_gen.AddRemoveTagRequest,
 ) (*proto_gen.Artifact, error) {
+	err := validateFQN(req.Fqn)
+	if err != nil {
+		log.Error().Err(err).Msg("Invalid FQN in AddTag request")
+
+		return nil, err
+	}
+
 	log.Info().
 		Str("source", req.Fqn.Source).
 		Str("author", req.Fqn.Author).
@@ -397,7 +431,7 @@ func (s *Server) AddTag(
 		return nil, newRegistryUnavailableError("adding tag")
 	}
 
-	err := orm.AddTag(ctx, req.Fqn, req.VersionHash, req.Tag)
+	err = orm.AddTag(ctx, req.Fqn, req.VersionHash, req.Tag)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to add tag")
 
@@ -419,6 +453,13 @@ func (s *Server) RemoveTag(
 	ctx context.Context,
 	req *proto_gen.AddRemoveTagRequest,
 ) (*proto_gen.Artifact, error) {
+	err := validateFQN(req.Fqn)
+	if err != nil {
+		log.Error().Err(err).Msg("Invalid FQN in RemoveTag request")
+
+		return nil, err
+	}
+
 	log.Info().
 		Str("source", req.Fqn.Source).
 		Str("author", req.Fqn.Author).
@@ -430,7 +471,7 @@ func (s *Server) RemoveTag(
 		return nil, newRegistryUnavailableError("removing tag")
 	}
 
-	err := orm.RemoveTag(ctx, req.Fqn, req.Tag)
+	err = orm.RemoveTag(ctx, req.Fqn, req.Tag)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to remove tag")
 
@@ -452,8 +493,14 @@ func resolveIdentifier(
 	ctx context.Context,
 	id *proto_gen.ArtifactIdentifier,
 ) (*orm.Artifact, error) {
+	err := validateFQN(id.Fqn)
+	if err != nil {
+		log.Error().Err(err).Msg("Invalid FQN in artifact identifier")
+
+		return nil, err
+	}
+
 	var artifactMeta *orm.Artifact
-	var err error
 	switch identifier := id.Identifier.(type) {
 	case *proto_gen.ArtifactIdentifier_VersionHash:
 		artifactMeta, err = orm.GetArtifactMetaByHash(ctx, id.Fqn, identifier.VersionHash)
