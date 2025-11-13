@@ -2,18 +2,14 @@ package registry
 
 import (
 	"artifact-registry/orm"
-	"artifact-registry/proto_gen"
 	"errors"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-var (
-	// Static errors to avoid err113 violations
-	ErrInvalidIdentifier = errors.New("no valid identifier provided")
-	ErrRegistryNil       = errors.New("registry is nil")
-)
+// Static errors to avoid err113 violations
+var ErrRegistryNil = errors.New("registry is nil")
 
 // ServiceError represents public-facing errors from the registry service
 type ServiceError struct {
@@ -74,18 +70,6 @@ func wrapServiceError(err error, operation string) error {
 		Message: "Internal server error during " + operation,
 		Inner:   err,
 	}
-}
-
-func validateFQN(fqn *proto_gen.FullQualifiedName) error {
-	if fqn == nil || fqn.Source == "" || fqn.Author == "" || fqn.Name == "" {
-		return &ServiceError{
-			Code:    codes.InvalidArgument,
-			Message: "FullQualifiedName must have source, author, and name",
-			Inner:   ErrInvalidIdentifier,
-		}
-	}
-
-	return nil
 }
 
 // Common error constructors for specific operations

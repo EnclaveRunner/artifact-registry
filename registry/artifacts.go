@@ -87,6 +87,34 @@ func (s *Server) PullArtifact(
 		return err
 	}
 
+	// Validate identifier is not empty
+	switch identifier := req.Identifier.(type) {
+	case *proto_gen.PullArtifactRequest_VersionHash:
+		if identifier.VersionHash == "" {
+			log.Error().Msg("Empty versionHash in PullArtifactRequest")
+
+			return &ServiceError{
+				Code:    codes.InvalidArgument,
+				Message: "versionHash cannot be empty",
+				Inner:   ErrEmptyVersionHash,
+			}
+		}
+	case *proto_gen.PullArtifactRequest_Tag:
+		if identifier.Tag == "" {
+			log.Error().Msg("Empty tag in PullArtifactRequest")
+
+			return &ServiceError{
+				Code:    codes.InvalidArgument,
+				Message: "tag cannot be empty",
+				Inner:   ErrEmptyTag,
+			}
+		}
+	case nil:
+		log.Error().Msg("No identifier provided in PullArtifactRequest")
+
+		return newInvalidIdentifierError()
+	}
+
 	log.Info().
 		Str("source", req.Fqn.Source).
 		Str("author", req.Fqn.Author).
@@ -116,10 +144,6 @@ func (s *Server) PullArtifact(
 
 			return wrapServiceError(err, "retrieving artifact by tag")
 		}
-	default:
-		log.Error().Msg("No valid identifier provided in PullArtifactRequest")
-
-		return newInvalidIdentifierError()
 	}
 
 	// Get the artifact from the registry
@@ -413,9 +437,9 @@ func (s *Server) AddTag(
 	ctx context.Context,
 	req *proto_gen.AddRemoveTagRequest,
 ) (*proto_gen.Artifact, error) {
-	err := validateFQN(req.Fqn)
+	err := validateAddRemoveTagRequest(req)
 	if err != nil {
-		log.Error().Err(err).Msg("Invalid FQN in AddTag request")
+		log.Error().Err(err).Msg("Invalid AddTag request")
 
 		return nil, err
 	}
@@ -453,9 +477,9 @@ func (s *Server) RemoveTag(
 	ctx context.Context,
 	req *proto_gen.AddRemoveTagRequest,
 ) (*proto_gen.Artifact, error) {
-	err := validateFQN(req.Fqn)
+	err := validateAddRemoveTagRequest(req)
 	if err != nil {
-		log.Error().Err(err).Msg("Invalid FQN in RemoveTag request")
+		log.Error().Err(err).Msg("Invalid RemoveTag request")
 
 		return nil, err
 	}
@@ -493,9 +517,9 @@ func resolveIdentifier(
 	ctx context.Context,
 	id *proto_gen.ArtifactIdentifier,
 ) (*orm.Artifact, error) {
-	err := validateFQN(id.Fqn)
+	err := validateArtifactIdentifier(id)
 	if err != nil {
-		log.Error().Err(err).Msg("Invalid FQN in artifact identifier")
+		log.Error().Err(err).Msg("Invalid artifact identifier")
 
 		return nil, err
 	}
@@ -516,10 +540,6 @@ func resolveIdentifier(
 
 			return nil, wrapServiceError(err, "resolving artifact by tag")
 		}
-	default:
-		log.Error().Msg("No valid identifier provided")
-
-		return nil, newInvalidIdentifierError()
 	}
 
 	return artifactMeta, nil
