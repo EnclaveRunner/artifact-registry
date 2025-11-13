@@ -17,6 +17,18 @@ type AppConfig struct {
 		Database string `mapstructure:"database" validate:"required"`
 		SSLMode  string `mapstructure:"sslmode"  validate:"oneof=disable require verify-ca verify-full"`
 	} `mapstructure:"database" validate:"required"`
+
+	Persistence struct {
+		Type string `mapstructure:"type" validate:"omitempty,oneof=filesystem s3"`
+		S3   struct {
+			KeyID     string `mapstructure:"key_id"     validate:"required"`
+			AccessKey string `mapstructure:"access_key" validate:"required"`
+			Endpoint  string `mapstructure:"endpoint"   validate:"required,url"`
+			Region    string `mapstructure:"region"     validate:"required"`
+			Bucket    string `mapstructure:"bucket"     validate:"required"`
+			Timeout   string `mapstructure:"timeout"    validate:"omitempty"`
+		} `mapstructure:"s3" validate:"omitempty"`
+	} `mapstructure:"persistence" validate:"omitempty"`
 }
 
 //nolint:mnd // Default port for gRPC service
