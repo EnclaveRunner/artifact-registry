@@ -29,6 +29,8 @@ var ErrIncompleteS3Config = errors.New("incomplete S3 configuration")
 // ErrArtifactNotFound is returned when an artifact is not found
 var ErrArtifactNotFound = errors.New("artifact not found")
 
+const DefaultS3Timeout = 120 * time.Second
+
 // S3Registry implements the registry interface using an s3-backed
 // storage
 type S3Registry struct {
@@ -44,8 +46,7 @@ func New() (*S3Registry, error) {
 		strings.TrimSpace(config.Cfg.Persistence.S3.KeyID) == "" ||
 		strings.TrimSpace(config.Cfg.Persistence.S3.Endpoint) == "" ||
 		strings.TrimSpace(config.Cfg.Persistence.S3.Region) == "" ||
-		strings.TrimSpace(config.Cfg.Persistence.S3.Bucket) == "" ||
-		strings.TrimSpace(config.Cfg.Persistence.S3.Timeout) == "" {
+		strings.TrimSpace(config.Cfg.Persistence.S3.Bucket) == "" {
 		return nil, fmt.Errorf("%w", ErrIncompleteS3Config)
 	}
 	s3Client := s3.New(s3.Options{
@@ -60,6 +61,13 @@ func New() (*S3Registry, error) {
 			),
 		),
 	})
+	if config.Cfg.Persistence.S3.Timeout == "" {
+		return &S3Registry{
+			S3Client: s3Client,
+			Timeout:  DefaultS3Timeout,
+			Bucket:   config.Cfg.Persistence.S3.Bucket,
+		}, nil
+	}
 
 	timeoutDuration, err := time.ParseDuration(config.Cfg.Persistence.S3.Timeout)
 	if err != nil {
@@ -135,7 +143,7 @@ func (r *S3Registry) GetArtifact(
 		Key:    aws.String(artifactPath),
 	})
 	if err != nil {
-		var notFoundErr *types.NotFound
+		var notFoundErr *types.NoSuchKey
 		if errors.As(err, &notFoundErr) {
 			return nil, ErrArtifactNotFound
 		}
@@ -169,18 +177,17 @@ func (r *S3Registry) DeleteArtifact(
 	artifactPath := r.getArtifactPath(fqn, hash)
 
 	// check if object exists before attempting deletion
-	content, err := r.GetArtifact(fqn, hash)
+	ctx, cancel := context.WithTimeout(context.Background(), r.Timeout)
+	defer cancel()
+	_, err := r.S3Client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(r.Bucket),
+		Key:    aws.String(artifactPath),
+	})
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrArtifactNotFound, err)
 	}
-	if len(content) == 0 {
-		return fmt.Errorf(
-			"%w: artifact is empty, cannot delete",
-			ErrArtifactNotFound,
-		)
-	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), r.Timeout)
+	ctx, cancel = context.WithTimeout(context.Background(), r.Timeout)
 	defer cancel()
 	_, err = r.S3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(r.Bucket),

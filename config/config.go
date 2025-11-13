@@ -19,14 +19,14 @@ type AppConfig struct {
 	} `mapstructure:"database" validate:"required"`
 
 	Persistence struct {
-		Type string `mapstructure:"type" validate:"omitempty,oneof=default filesystem s3"`
+		Type string `mapstructure:"type" validate:"omitempty,oneof=filesystem s3"`
 		S3   struct {
 			KeyID     string `mapstructure:"key_id"     validate:"required"`
 			AccessKey string `mapstructure:"access_key" validate:"required"`
 			Endpoint  string `mapstructure:"endpoint"   validate:"required,url"`
 			Region    string `mapstructure:"region"     validate:"required"`
 			Bucket    string `mapstructure:"bucket"     validate:"required"`
-			Timeout   string `mapstructure:"timeout"    validate:"ommitempty"`
+			Timeout   string `mapstructure:"timeout"    validate:"omitempty"`
 		} `mapstructure:"s3" validate:"omitempty"`
 	} `mapstructure:"persistence" validate:"omitempty"`
 }
