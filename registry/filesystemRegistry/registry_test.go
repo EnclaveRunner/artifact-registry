@@ -1,4 +1,4 @@
-//nolint
+//nolint:paralleltest // Currently not supported (should do so in the future)
 package filesystemRegistry
 
 import (
@@ -34,7 +34,7 @@ func TestFilesystemRegistry(t *testing.T) {
 	}
 
 	// Test artifact FQN
-	fqn := &proto_gen.FullQualifiedName{
+	fqn := &proto_gen.FullyQualifiedName{
 		Source: "github.com",
 		Author: "testuser",
 		Name:   "testapp",
@@ -183,7 +183,7 @@ func TestFilesystemRegistry(t *testing.T) {
 	// Test directory structure creation
 	t.Run("DirectoryStructure", func(t *testing.T) {
 		// Store artifact with complex FQN
-		complexFqn := &proto_gen.FullQualifiedName{
+		complexFqn := &proto_gen.FullyQualifiedName{
 			Source: "complex.domain.com",
 			Author: "complex-author",
 			Name:   "complex-name-with-dashes",
