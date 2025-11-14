@@ -2,16 +2,22 @@ package filesystemRegistry
 
 import (
 	"artifact-registry/proto_gen"
+	"artifact-registry/registry"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 )
 
 // ErrArtifactNotFound is returned when an artifact is not found
 var ErrArtifactNotFound = errors.New("artifact not found")
+
+// directory where artifacts are temporarely stored while they dont have a
+// version hash
+var uploadDir = "./uploads"
 
 // FilesystemRegistry implements the registry interface using simple filesystem
 // storage
@@ -33,22 +39,83 @@ func New(baseDir string) (*FilesystemRegistry, error) {
 // hash
 func (r *FilesystemRegistry) StoreArtifact(
 	fqn *proto_gen.FullyQualifiedName,
-	content []byte,
+	reader io.Reader,
 ) (string, error) {
-	// Generate version hash if not provided
-	hash := sha256.Sum256(content)
-	versionHash := hex.EncodeToString(hash[:])
+	uniqueTempFileName := uploadDir + "/" + fqn.Author + fqn.Name + fqn.Source + ".tmp"
 
-	// Create directory structure
-	artifactPath := r.getArtifactPath(fqn, versionHash)
+	// Ensure uniqueTempFileName is within the intended directory to prevent file
+	// inclusion
+	absUploadDir, err := filepath.Abs(uploadDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute upload directory: %w", err)
+	}
+	absTempFileName, err := filepath.Abs(uniqueTempFileName)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute temp file name: %w", err)
+	}
+	absUploadDirClean := filepath.Clean(absUploadDir) + string(os.PathSeparator)
+	absTempFileNameClean := filepath.Clean(absTempFileName)
+	if len(absTempFileNameClean) < len(absUploadDirClean) ||
+		absTempFileNameClean[:len(absUploadDirClean)] != absUploadDirClean {
+		return "", fmt.Errorf("%w: %s", ErrArtifactNotFound, absTempFileName)
+	}
+
+	// Ensure the uploads directory exists
+	//nolint:gosec,mnd // Directory permissions 0755 are intentional
+	if err := os.MkdirAll(absUploadDir, 0o755); err != nil {
+		return "", fmt.Errorf("failed to create upload directory: %w", err)
+	}
+
+	// Create or open a file for writing
+	file, err := os.Create(absTempFileNameClean)
+	if err != nil {
+		return "", fmt.Errorf("error creating file: %w", err)
+	}
+	defer func() {
+		if cerr := file.Close(); cerr != nil {
+			err = fmt.Errorf("error closing file: %w", cerr)
+		}
+	}()
+
+	// Create a hash.Hash to compute the checksum
+	h := sha256.New()
+
+	// Create a multi-writer to write to both the file and the hash
+	multiWriter := io.MultiWriter(file, h)
+
+	// Buffer to read chunks into
+	buf := make([]byte, registry.ChunkSize)
+
+	for {
+		// Read into buf from the PipeReader
+		n, err := reader.Read(buf)
+		if err == io.EOF {
+			break // end of stream
+		}
+		if err != nil {
+			return "", fmt.Errorf("error reading chunk: %w", err)
+		}
+
+		// Write the buffer to the multi-writer
+		if _, err := multiWriter.Write(buf[:n]); err != nil {
+			return "", fmt.Errorf("error writing to multi-writer: %w", err)
+		}
+	}
+
+	// Generate version hash
+	versionHash := hex.EncodeToString(h.Sum(nil))
+
+	// Rename the temp file to the final path
+	finalPath := r.getArtifactPath(fqn, versionHash)
+	// Ensure the final directory exists before renaming
+	finalDir := filepath.Dir(finalPath)
 
 	//nolint:gosec,mnd // Directory permissions 0755 are intentional
-	if err := os.MkdirAll(filepath.Dir(artifactPath), 0o755); err != nil {
-		return "", fmt.Errorf("failed to create directory: %w", err)
+	if err := os.MkdirAll(finalDir, 0o755); err != nil {
+		return "", fmt.Errorf("failed to create final directory: %w", err)
 	}
-	//nolint:mnd // filemode constant
-	if err := os.WriteFile(artifactPath, content, 0o644); err != nil {
-		return versionHash, fmt.Errorf("failed to write file: %w", err)
+	if err := os.Rename(absTempFileNameClean, finalPath); err != nil {
+		return "", fmt.Errorf("failed to rename temp file: %w", err)
 	}
 
 	return versionHash, nil

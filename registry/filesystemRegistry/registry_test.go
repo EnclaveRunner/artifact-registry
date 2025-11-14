@@ -44,7 +44,7 @@ func TestFilesystemRegistry(t *testing.T) {
 
 	// Test StoreArtifact - should compute hash and store file
 	t.Run("StoreArtifact", func(t *testing.T) {
-		versionHash, err := registry.StoreArtifact(fqn, content)
+		versionHash, err := registry.StoreArtifact(fqn, bytes.NewReader(content))
 		if err != nil {
 			t.Fatalf("Failed to store artifact: %v", err)
 		}
@@ -111,7 +111,10 @@ func TestFilesystemRegistry(t *testing.T) {
 	// Test StoreArtifact with different content - should generate different hash
 	t.Run("StoreArtifactDifferentContent", func(t *testing.T) {
 		differentContent := []byte("different test content")
-		versionHash2, err := registry.StoreArtifact(fqn, differentContent)
+		versionHash2, err := registry.StoreArtifact(
+			fqn,
+			bytes.NewReader(differentContent),
+		)
 		if err != nil {
 			t.Fatalf("Failed to store second artifact: %v", err)
 		}
@@ -190,7 +193,10 @@ func TestFilesystemRegistry(t *testing.T) {
 		}
 
 		complexContent := []byte("content for complex artifact")
-		versionHash, err := registry.StoreArtifact(complexFqn, complexContent)
+		versionHash, err := registry.StoreArtifact(
+			complexFqn,
+			bytes.NewReader(complexContent),
+		)
 		if err != nil {
 			t.Fatalf("Failed to store complex artifact: %v", err)
 		}

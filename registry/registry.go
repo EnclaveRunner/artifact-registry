@@ -2,6 +2,7 @@ package registry
 
 import (
 	"artifact-registry/proto_gen"
+	"io"
 )
 
 // Registry interface defines the methods that any registry implementation must
@@ -9,7 +10,7 @@ import (
 type Registry interface {
 	StoreArtifact(
 		fqn *proto_gen.FullyQualifiedName,
-		content []byte,
+		reader io.Reader,
 	) (string, error)
 	GetArtifact(fqn *proto_gen.FullyQualifiedName, hash string) ([]byte, error)
 	DeleteArtifact(fqn *proto_gen.FullyQualifiedName, hash string) error

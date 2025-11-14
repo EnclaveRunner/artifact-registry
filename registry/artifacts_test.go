@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -22,7 +23,7 @@ type MockRegistry struct {
 
 func (m *MockRegistry) StoreArtifact(
 	fqn *proto_gen.FullyQualifiedName,
-	content []byte,
+	content io.Reader,
 ) (string, error) {
 	args := m.Called(fqn, content)
 

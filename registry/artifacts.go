@@ -238,9 +238,21 @@ func (s *Server) UploadArtifact(
 		Str("name", metadata.Fqn.Name).
 		Msg("UploadArtifact triggered")
 
-	//nolint:godox // Will be implemented by other PRs
-	// TODO: Implement stream writing to registry backend
-	var content []byte
+	pr, pw := io.Pipe()
+
+	resultChan := make(chan struct {
+		versionHash string
+		err         error
+	})
+
+	go func() {
+		versionHash, err := s.registry.StoreArtifact(metadata.Fqn, pr)
+		resultChan <- struct {
+			versionHash string
+			err         error
+		}{versionHash, err}
+		close(resultChan)
+	}()
 
 	for {
 		message, err := stream.Recv()
@@ -265,14 +277,33 @@ func (s *Server) UploadArtifact(
 			}
 		}
 
-		content = append(content, chunk.Data...)
+		_, err = pw.Write(chunk.Data)
+		if err != nil {
+			log.Fatal().Msgf("Error writing chunk to writer: %v", err)
+		}
+	}
+
+	// Close the writer when done
+	err = pw.Close()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to close artifact content writer")
+
+		return wrapServiceError(err, "closing artifact content writer")
 	}
 
 	if s.registry == nil {
 		return newRegistryUnavailableError("artifact upload")
 	}
 
-	versionHash, err := s.registry.StoreArtifact(metadata.Fqn, content)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to store artifact")
+
+		return wrapServiceError(err, "storing artifact")
+	}
+
+	result := <-resultChan
+	versionHash := result.versionHash
+	err = result.err
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to store artifact")
 
