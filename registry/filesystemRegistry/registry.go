@@ -10,6 +10,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/google/uuid"
 )
 
 // ErrArtifactNotFound is returned when an artifact is not found
@@ -41,7 +43,11 @@ func (r *FilesystemRegistry) StoreArtifact(
 	fqn *proto_gen.FullyQualifiedName,
 	reader io.Reader,
 ) (string, error) {
-	uniqueTempFileName := uploadDir + "/" + fqn.Author + fqn.Name + fqn.Source + ".tmp"
+	uuidVal, err := uuid.NewUUID()
+	if err != nil {
+		return "", fmt.Errorf("failed to generate UUID: %w", err)
+	}
+	uniqueTempFileName := uploadDir + "/" + uuidVal.String() + ".tmp"
 
 	// Ensure uniqueTempFileName is within the intended directory to prevent file
 	// inclusion
