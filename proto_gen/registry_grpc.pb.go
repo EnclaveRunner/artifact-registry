@@ -34,7 +34,7 @@ const (
 type RegistryServiceClient interface {
 	QueryArtifacts(ctx context.Context, in *ArtifactQuery, opts ...grpc.CallOption) (*ArtifactListResponse, error)
 	PullArtifact(ctx context.Context, in *PullArtifactRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ArtifactContent], error)
-	UploadArtifact(ctx context.Context, in *UploadArtifactRequest, opts ...grpc.CallOption) (*Artifact, error)
+	UploadArtifact(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[UploadArtifactRequest, Artifact], error)
 	DeleteArtifact(ctx context.Context, in *ArtifactIdentifier, opts ...grpc.CallOption) (*Artifact, error)
 	GetArtifact(ctx context.Context, in *ArtifactIdentifier, opts ...grpc.CallOption) (*Artifact, error)
 	AddTag(ctx context.Context, in *AddRemoveTagRequest, opts ...grpc.CallOption) (*Artifact, error)
@@ -78,15 +78,18 @@ func (c *registryServiceClient) PullArtifact(ctx context.Context, in *PullArtifa
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type RegistryService_PullArtifactClient = grpc.ServerStreamingClient[ArtifactContent]
 
-func (c *registryServiceClient) UploadArtifact(ctx context.Context, in *UploadArtifactRequest, opts ...grpc.CallOption) (*Artifact, error) {
+func (c *registryServiceClient) UploadArtifact(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[UploadArtifactRequest, Artifact], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(Artifact)
-	err := c.cc.Invoke(ctx, RegistryService_UploadArtifact_FullMethodName, in, out, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &RegistryService_ServiceDesc.Streams[1], RegistryService_UploadArtifact_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &grpc.GenericClientStream[UploadArtifactRequest, Artifact]{ClientStream: stream}
+	return x, nil
 }
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type RegistryService_UploadArtifactClient = grpc.ClientStreamingClient[UploadArtifactRequest, Artifact]
 
 func (c *registryServiceClient) DeleteArtifact(ctx context.Context, in *ArtifactIdentifier, opts ...grpc.CallOption) (*Artifact, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -134,7 +137,7 @@ func (c *registryServiceClient) RemoveTag(ctx context.Context, in *AddRemoveTagR
 type RegistryServiceServer interface {
 	QueryArtifacts(context.Context, *ArtifactQuery) (*ArtifactListResponse, error)
 	PullArtifact(*PullArtifactRequest, grpc.ServerStreamingServer[ArtifactContent]) error
-	UploadArtifact(context.Context, *UploadArtifactRequest) (*Artifact, error)
+	UploadArtifact(grpc.ClientStreamingServer[UploadArtifactRequest, Artifact]) error
 	DeleteArtifact(context.Context, *ArtifactIdentifier) (*Artifact, error)
 	GetArtifact(context.Context, *ArtifactIdentifier) (*Artifact, error)
 	AddTag(context.Context, *AddRemoveTagRequest) (*Artifact, error)
@@ -155,8 +158,8 @@ func (UnimplementedRegistryServiceServer) QueryArtifacts(context.Context, *Artif
 func (UnimplementedRegistryServiceServer) PullArtifact(*PullArtifactRequest, grpc.ServerStreamingServer[ArtifactContent]) error {
 	return status.Errorf(codes.Unimplemented, "method PullArtifact not implemented")
 }
-func (UnimplementedRegistryServiceServer) UploadArtifact(context.Context, *UploadArtifactRequest) (*Artifact, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UploadArtifact not implemented")
+func (UnimplementedRegistryServiceServer) UploadArtifact(grpc.ClientStreamingServer[UploadArtifactRequest, Artifact]) error {
+	return status.Errorf(codes.Unimplemented, "method UploadArtifact not implemented")
 }
 func (UnimplementedRegistryServiceServer) DeleteArtifact(context.Context, *ArtifactIdentifier) (*Artifact, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteArtifact not implemented")
@@ -220,23 +223,12 @@ func _RegistryService_PullArtifact_Handler(srv interface{}, stream grpc.ServerSt
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type RegistryService_PullArtifactServer = grpc.ServerStreamingServer[ArtifactContent]
 
-func _RegistryService_UploadArtifact_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UploadArtifactRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RegistryServiceServer).UploadArtifact(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: RegistryService_UploadArtifact_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RegistryServiceServer).UploadArtifact(ctx, req.(*UploadArtifactRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+func _RegistryService_UploadArtifact_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(RegistryServiceServer).UploadArtifact(&grpc.GenericServerStream[UploadArtifactRequest, Artifact]{ServerStream: stream})
 }
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type RegistryService_UploadArtifactServer = grpc.ClientStreamingServer[UploadArtifactRequest, Artifact]
 
 func _RegistryService_DeleteArtifact_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ArtifactIdentifier)
@@ -322,10 +314,6 @@ var RegistryService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RegistryService_QueryArtifacts_Handler,
 		},
 		{
-			MethodName: "UploadArtifact",
-			Handler:    _RegistryService_UploadArtifact_Handler,
-		},
-		{
 			MethodName: "DeleteArtifact",
 			Handler:    _RegistryService_DeleteArtifact_Handler,
 		},
@@ -347,6 +335,11 @@ var RegistryService_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "PullArtifact",
 			Handler:       _RegistryService_PullArtifact_Handler,
 			ServerStreams: true,
+		},
+		{
+			StreamName:    "UploadArtifact",
+			Handler:       _RegistryService_UploadArtifact_Handler,
+			ClientStreams: true,
 		},
 	},
 	Metadata: "registry.proto",

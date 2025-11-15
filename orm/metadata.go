@@ -10,7 +10,7 @@ import (
 
 func GetArtifactMetaByHash(
 	ctx context.Context,
-	fqn *proto_gen.FullQualifiedName,
+	fqn *proto_gen.FullyQualifiedName,
 	hash string,
 ) (*Artifact, error) {
 	var artifact Artifact
@@ -42,7 +42,7 @@ func GetArtifactMetaByHash(
 
 func GetArtifactMetaByTag(
 	ctx context.Context,
-	fqn *proto_gen.FullQualifiedName,
+	fqn *proto_gen.FullyQualifiedName,
 	tag string,
 ) (*Artifact, error) {
 	var artifacts []Artifact
@@ -95,7 +95,7 @@ func hasTag(artifact *Artifact, tag string) bool {
 	return false
 }
 
-func IncreasePullCount(fqn *proto_gen.FullQualifiedName, hash string) error {
+func IncreasePullCount(fqn *proto_gen.FullyQualifiedName, hash string) error {
 	var artifact Artifact
 
 	artifact, err := gorm.G[Artifact](
@@ -137,7 +137,7 @@ func IncreasePullCount(fqn *proto_gen.FullQualifiedName, hash string) error {
 
 func GetArtifactMetasByFQN(
 	ctx context.Context,
-	fqn *proto_gen.FullQualifiedName,
+	fqn *proto_gen.FullyQualifiedName,
 ) ([]Artifact, error) {
 	var artifacts []Artifact
 
@@ -165,7 +165,7 @@ func GetArtifactMetasByFQN(
 }
 
 func StoreArtifactMeta(
-	fqn *proto_gen.FullQualifiedName,
+	fqn *proto_gen.FullyQualifiedName,
 	versionHash string,
 ) error {
 	return wrapErrorWithDetails(
@@ -189,7 +189,7 @@ func StoreArtifactMeta(
 }
 
 func DeleteArtifactMeta(
-	fqn *proto_gen.FullQualifiedName,
+	fqn *proto_gen.FullyQualifiedName,
 	versionHash string,
 ) error {
 	return wrapErrorWithDetails(
@@ -214,7 +214,7 @@ func DeleteArtifactMeta(
 
 func AddTag(
 	ctx context.Context,
-	fqn *proto_gen.FullQualifiedName,
+	fqn *proto_gen.FullyQualifiedName,
 	versionHash, tag string,
 ) error {
 	var artifact Artifact
@@ -268,7 +268,7 @@ func AddTag(
 
 func RemoveTag(
 	ctx context.Context,
-	fqn *proto_gen.FullQualifiedName,
+	fqn *proto_gen.FullyQualifiedName,
 	tag string,
 ) error {
 	var artifact Artifact

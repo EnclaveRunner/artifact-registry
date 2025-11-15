@@ -8,11 +8,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var (
-	// Static errors to avoid err113 violations
-	ErrInvalidIdentifier = errors.New("no valid identifier provided")
-	ErrRegistryNil       = errors.New("registry is nil")
-)
+// Static errors to avoid err113 violations
+var ErrRegistryNil = errors.New("registry is nil")
 
 // ServiceError represents public-facing errors from the registry service
 type ServiceError struct {
