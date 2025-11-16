@@ -47,7 +47,7 @@ func (r *FilesystemRegistry) StoreArtifact(
 	if err != nil {
 		return "", fmt.Errorf("failed to generate UUID: %w", err)
 	}
-	uniqueTempFileName := uploadDir + "/" + uuidVal.String() + ".tmp"
+	uniqueTempFileName := filepath.Join(uploadDir, uuidVal.String()+".tmp")
 
 	// Ensure uniqueTempFileName is within the intended directory to prevent file
 	// inclusion
