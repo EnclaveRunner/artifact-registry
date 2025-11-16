@@ -2,7 +2,6 @@ package filesystemRegistry
 
 import (
 	"artifact-registry/proto_gen"
-	"artifact-registry/registry"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -15,7 +14,10 @@ import (
 )
 
 // ErrArtifactNotFound is returned when an artifact is not found
-var ErrArtifactNotFound = errors.New("artifact not found")
+var (
+	ErrArtifactNotFound  = errors.New("artifact not found")
+	ErrSecurityViolation = errors.New("security violation detected")
+)
 
 // directory where artifacts are temporarely stored while they dont have a
 // version hash
@@ -63,7 +65,7 @@ func (r *FilesystemRegistry) StoreArtifact(
 	absTempFileNameClean := filepath.Clean(absTempFileName)
 	if len(absTempFileNameClean) < len(absUploadDirClean) ||
 		absTempFileNameClean[:len(absUploadDirClean)] != absUploadDirClean {
-		return "", fmt.Errorf("%w: %s", ErrArtifactNotFound, absTempFileName)
+		return "", fmt.Errorf("%w: %s", ErrSecurityViolation, absTempFileName)
 	}
 
 	// Ensure the uploads directory exists
@@ -81,6 +83,9 @@ func (r *FilesystemRegistry) StoreArtifact(
 		if cerr := file.Close(); cerr != nil {
 			err = fmt.Errorf("error closing file: %w", cerr)
 		}
+		if err != nil {
+			_ = os.Remove(absTempFileNameClean)
+		}
 	}()
 
 	// Create a hash.Hash to compute the checksum
@@ -89,23 +94,9 @@ func (r *FilesystemRegistry) StoreArtifact(
 	// Create a multi-writer to write to both the file and the hash
 	multiWriter := io.MultiWriter(file, h)
 
-	// Buffer to read chunks into
-	buf := make([]byte, registry.ChunkSize)
-
-	for {
-		// Read into buf from the PipeReader
-		n, err := reader.Read(buf)
-		if err == io.EOF {
-			break // end of stream
-		}
-		if err != nil {
-			return "", fmt.Errorf("error reading chunk: %w", err)
-		}
-
-		// Write the buffer to the multi-writer
-		if _, err := multiWriter.Write(buf[:n]); err != nil {
-			return "", fmt.Errorf("error writing to multi-writer: %w", err)
-		}
+	// Copy from reader to both file and hash
+	if _, err := io.Copy(multiWriter, reader); err != nil {
+		return "", fmt.Errorf("error writing artifact: %w", err)
 	}
 
 	// Generate version hash

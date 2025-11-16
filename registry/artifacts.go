@@ -238,6 +238,10 @@ func (s *Server) UploadArtifact(
 		Str("name", metadata.Fqn.Name).
 		Msg("UploadArtifact triggered")
 
+	if s.registry == nil {
+		return newRegistryUnavailableError("artifact upload")
+	}
+
 	pr, pw := io.Pipe()
 
 	resultChan := make(chan struct {
@@ -245,12 +249,18 @@ func (s *Server) UploadArtifact(
 		err         error
 	})
 
+	ctx, cancel := context.WithCancel(stream.Context())
+	defer cancel()
+
 	go func() {
 		versionHash, err := s.registry.StoreArtifact(metadata.Fqn, pr)
-		resultChan <- struct {
+		select {
+		case resultChan <- struct {
 			versionHash string
 			err         error
-		}{versionHash, err}
+		}{versionHash, err}:
+		case <-ctx.Done():
+		}
 		close(resultChan)
 	}()
 
@@ -263,6 +273,7 @@ func (s *Server) UploadArtifact(
 
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to receive upload artifact message")
+			_ = pw.CloseWithError(err)
 
 			return wrapServiceError(err, "receiving upload artifact message")
 		}
@@ -270,6 +281,12 @@ func (s *Server) UploadArtifact(
 		chunk := message.GetContent()
 		if chunk == nil {
 			log.Error().Msg("UploadArtifactRequest missing content chunk")
+			err = pw.Close()
+			if err != nil {
+				log.Error().
+					Err(err).
+					Msg("Failed to close pipe writer after missing chunk")
+			}
 
 			return &ServiceError{
 				Code:    codes.InvalidArgument,
@@ -279,7 +296,8 @@ func (s *Server) UploadArtifact(
 
 		_, err = pw.Write(chunk.Data)
 		if err != nil {
-			log.Fatal().Msgf("Error writing chunk to writer: %v", err)
+			_ = pw.CloseWithError(err)
+			log.Error().Msgf("Error writing chunk to writer: %v", err)
 		}
 	}
 
@@ -289,16 +307,6 @@ func (s *Server) UploadArtifact(
 		log.Error().Err(err).Msg("Failed to close artifact content writer")
 
 		return wrapServiceError(err, "closing artifact content writer")
-	}
-
-	if s.registry == nil {
-		return newRegistryUnavailableError("artifact upload")
-	}
-
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to store artifact")
-
-		return wrapServiceError(err, "storing artifact")
 	}
 
 	result := <-resultChan
@@ -313,6 +321,7 @@ func (s *Server) UploadArtifact(
 	err = orm.StoreArtifactMeta(metadata.Fqn, versionHash)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to store artifact metadata")
+		_ = s.registry.DeleteArtifact(metadata.Fqn, versionHash)
 
 		return wrapServiceError(err, "storing artifact metadata")
 	}
