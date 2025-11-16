@@ -9,7 +9,7 @@ fmt:
 
 # Lint code (requires golangci-lint to be installed)
 lint:
-	golangci-lint run --fix ./registry/... ./config/... ./orm/...
+	golangci-lint run --fix
 
 # Clean test cache
 clean:

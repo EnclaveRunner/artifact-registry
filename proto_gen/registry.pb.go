@@ -22,7 +22,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type FullQualifiedName struct {
+type FullyQualifiedName struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Source        string                 `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
 	Author        string                 `protobuf:"bytes,2,opt,name=author,proto3" json:"author,omitempty"`
@@ -31,20 +31,20 @@ type FullQualifiedName struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *FullQualifiedName) Reset() {
-	*x = FullQualifiedName{}
+func (x *FullyQualifiedName) Reset() {
+	*x = FullyQualifiedName{}
 	mi := &file_registry_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *FullQualifiedName) String() string {
+func (x *FullyQualifiedName) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*FullQualifiedName) ProtoMessage() {}
+func (*FullyQualifiedName) ProtoMessage() {}
 
-func (x *FullQualifiedName) ProtoReflect() protoreflect.Message {
+func (x *FullyQualifiedName) ProtoReflect() protoreflect.Message {
 	mi := &file_registry_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -56,26 +56,26 @@ func (x *FullQualifiedName) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use FullQualifiedName.ProtoReflect.Descriptor instead.
-func (*FullQualifiedName) Descriptor() ([]byte, []int) {
+// Deprecated: Use FullyQualifiedName.ProtoReflect.Descriptor instead.
+func (*FullyQualifiedName) Descriptor() ([]byte, []int) {
 	return file_registry_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *FullQualifiedName) GetSource() string {
+func (x *FullyQualifiedName) GetSource() string {
 	if x != nil {
 		return x.Source
 	}
 	return ""
 }
 
-func (x *FullQualifiedName) GetAuthor() string {
+func (x *FullyQualifiedName) GetAuthor() string {
 	if x != nil {
 		return x.Author
 	}
 	return ""
 }
 
-func (x *FullQualifiedName) GetName() string {
+func (x *FullyQualifiedName) GetName() string {
 	if x != nil {
 		return x.Name
 	}
@@ -84,7 +84,7 @@ func (x *FullQualifiedName) GetName() string {
 
 type ArtifactIdentifier struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	Fqn   *FullQualifiedName     `protobuf:"bytes,1,opt,name=fqn,proto3" json:"fqn,omitempty"`
+	Fqn   *FullyQualifiedName    `protobuf:"bytes,1,opt,name=fqn,proto3" json:"fqn,omitempty"`
 	// Types that are valid to be assigned to Identifier:
 	//
 	//	*ArtifactIdentifier_VersionHash
@@ -124,7 +124,7 @@ func (*ArtifactIdentifier) Descriptor() ([]byte, []int) {
 	return file_registry_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *ArtifactIdentifier) GetFqn() *FullQualifiedName {
+func (x *ArtifactIdentifier) GetFqn() *FullyQualifiedName {
 	if x != nil {
 		return x.Fqn
 	}
@@ -174,7 +174,7 @@ func (*ArtifactIdentifier_Tag) isArtifactIdentifier_Identifier() {}
 
 type Artifact struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Fqn           *FullQualifiedName     `protobuf:"bytes,1,opt,name=fqn,proto3" json:"fqn,omitempty"`
+	Fqn           *FullyQualifiedName    `protobuf:"bytes,1,opt,name=fqn,proto3" json:"fqn,omitempty"`
 	VersionHash   string                 `protobuf:"bytes,2,opt,name=versionHash,proto3" json:"versionHash,omitempty"`
 	Tags          []string               `protobuf:"bytes,3,rep,name=tags,proto3" json:"tags,omitempty"`
 	Metadata      *MetaData              `protobuf:"bytes,4,opt,name=metadata,proto3" json:"metadata,omitempty"`
@@ -212,7 +212,7 @@ func (*Artifact) Descriptor() ([]byte, []int) {
 	return file_registry_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *Artifact) GetFqn() *FullQualifiedName {
+func (x *Artifact) GetFqn() *FullyQualifiedName {
 	if x != nil {
 		return x.Fqn
 	}
@@ -398,7 +398,7 @@ func (x *ArtifactListResponse) GetArtifacts() []*Artifact {
 
 type PullArtifactRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	Fqn   *FullQualifiedName     `protobuf:"bytes,1,opt,name=fqn,proto3" json:"fqn,omitempty"`
+	Fqn   *FullyQualifiedName    `protobuf:"bytes,1,opt,name=fqn,proto3" json:"fqn,omitempty"`
 	// Types that are valid to be assigned to Identifier:
 	//
 	//	*PullArtifactRequest_VersionHash
@@ -438,7 +438,7 @@ func (*PullArtifactRequest) Descriptor() ([]byte, []int) {
 	return file_registry_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *PullArtifactRequest) GetFqn() *FullQualifiedName {
+func (x *PullArtifactRequest) GetFqn() *FullyQualifiedName {
 	if x != nil {
 		return x.Fqn
 	}
@@ -531,10 +531,12 @@ func (x *ArtifactContent) GetData() []byte {
 }
 
 type UploadArtifactRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Fqn           *FullQualifiedName     `protobuf:"bytes,1,opt,name=fqn,proto3" json:"fqn,omitempty"`
-	Tags          []string               `protobuf:"bytes,2,rep,name=tags,proto3" json:"tags,omitempty"`
-	Content       []byte                 `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Request:
+	//
+	//	*UploadArtifactRequest_Metadata
+	//	*UploadArtifactRequest_Content
+	Request       isUploadArtifactRequest_Request `protobuf_oneof:"request"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -569,30 +571,102 @@ func (*UploadArtifactRequest) Descriptor() ([]byte, []int) {
 	return file_registry_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *UploadArtifactRequest) GetFqn() *FullQualifiedName {
+func (x *UploadArtifactRequest) GetRequest() isUploadArtifactRequest_Request {
+	if x != nil {
+		return x.Request
+	}
+	return nil
+}
+
+func (x *UploadArtifactRequest) GetMetadata() *UploadMetadata {
+	if x != nil {
+		if x, ok := x.Request.(*UploadArtifactRequest_Metadata); ok {
+			return x.Metadata
+		}
+	}
+	return nil
+}
+
+func (x *UploadArtifactRequest) GetContent() *ArtifactContent {
+	if x != nil {
+		if x, ok := x.Request.(*UploadArtifactRequest_Content); ok {
+			return x.Content
+		}
+	}
+	return nil
+}
+
+type isUploadArtifactRequest_Request interface {
+	isUploadArtifactRequest_Request()
+}
+
+type UploadArtifactRequest_Metadata struct {
+	Metadata *UploadMetadata `protobuf:"bytes,1,opt,name=metadata,proto3,oneof"`
+}
+
+type UploadArtifactRequest_Content struct {
+	Content *ArtifactContent `protobuf:"bytes,2,opt,name=content,proto3,oneof"`
+}
+
+func (*UploadArtifactRequest_Metadata) isUploadArtifactRequest_Request() {}
+
+func (*UploadArtifactRequest_Content) isUploadArtifactRequest_Request() {}
+
+type UploadMetadata struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Fqn           *FullyQualifiedName    `protobuf:"bytes,1,opt,name=fqn,proto3" json:"fqn,omitempty"`
+	Tags          []string               `protobuf:"bytes,2,rep,name=tags,proto3" json:"tags,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UploadMetadata) Reset() {
+	*x = UploadMetadata{}
+	mi := &file_registry_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UploadMetadata) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UploadMetadata) ProtoMessage() {}
+
+func (x *UploadMetadata) ProtoReflect() protoreflect.Message {
+	mi := &file_registry_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UploadMetadata.ProtoReflect.Descriptor instead.
+func (*UploadMetadata) Descriptor() ([]byte, []int) {
+	return file_registry_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *UploadMetadata) GetFqn() *FullyQualifiedName {
 	if x != nil {
 		return x.Fqn
 	}
 	return nil
 }
 
-func (x *UploadArtifactRequest) GetTags() []string {
+func (x *UploadMetadata) GetTags() []string {
 	if x != nil {
 		return x.Tags
 	}
 	return nil
 }
 
-func (x *UploadArtifactRequest) GetContent() []byte {
-	if x != nil {
-		return x.Content
-	}
-	return nil
-}
-
 type AddRemoveTagRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Fqn           *FullQualifiedName     `protobuf:"bytes,1,opt,name=fqn,proto3" json:"fqn,omitempty"`
+	Fqn           *FullyQualifiedName    `protobuf:"bytes,1,opt,name=fqn,proto3" json:"fqn,omitempty"`
 	VersionHash   string                 `protobuf:"bytes,2,opt,name=versionHash,proto3" json:"versionHash,omitempty"`
 	Tag           string                 `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -601,7 +675,7 @@ type AddRemoveTagRequest struct {
 
 func (x *AddRemoveTagRequest) Reset() {
 	*x = AddRemoveTagRequest{}
-	mi := &file_registry_proto_msgTypes[9]
+	mi := &file_registry_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -613,7 +687,7 @@ func (x *AddRemoveTagRequest) String() string {
 func (*AddRemoveTagRequest) ProtoMessage() {}
 
 func (x *AddRemoveTagRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_registry_proto_msgTypes[9]
+	mi := &file_registry_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -626,10 +700,10 @@ func (x *AddRemoveTagRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddRemoveTagRequest.ProtoReflect.Descriptor instead.
 func (*AddRemoveTagRequest) Descriptor() ([]byte, []int) {
-	return file_registry_proto_rawDescGZIP(), []int{9}
+	return file_registry_proto_rawDescGZIP(), []int{10}
 }
 
-func (x *AddRemoveTagRequest) GetFqn() *FullQualifiedName {
+func (x *AddRemoveTagRequest) GetFqn() *FullyQualifiedName {
 	if x != nil {
 		return x.Fqn
 	}
@@ -654,19 +728,19 @@ var File_registry_proto protoreflect.FileDescriptor
 
 const file_registry_proto_rawDesc = "" +
 	"\n" +
-	"\x0eregistry.proto\x12\bregistry\x1a\x1fgoogle/protobuf/timestamp.proto\"W\n" +
-	"\x11FullQualifiedName\x12\x16\n" +
+	"\x0eregistry.proto\x12\bregistry\x1a\x1fgoogle/protobuf/timestamp.proto\"X\n" +
+	"\x12FullyQualifiedName\x12\x16\n" +
 	"\x06source\x18\x01 \x01(\tR\x06source\x12\x16\n" +
 	"\x06author\x18\x02 \x01(\tR\x06author\x12\x12\n" +
-	"\x04name\x18\x03 \x01(\tR\x04name\"\x89\x01\n" +
-	"\x12ArtifactIdentifier\x12-\n" +
-	"\x03fqn\x18\x01 \x01(\v2\x1b.registry.FullQualifiedNameR\x03fqn\x12\"\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\"\x8a\x01\n" +
+	"\x12ArtifactIdentifier\x12.\n" +
+	"\x03fqn\x18\x01 \x01(\v2\x1c.registry.FullyQualifiedNameR\x03fqn\x12\"\n" +
 	"\vversionHash\x18\x02 \x01(\tH\x00R\vversionHash\x12\x12\n" +
 	"\x03tag\x18\x03 \x01(\tH\x00R\x03tagB\f\n" +
 	"\n" +
-	"identifier\"\x9f\x01\n" +
-	"\bArtifact\x12-\n" +
-	"\x03fqn\x18\x01 \x01(\v2\x1b.registry.FullQualifiedNameR\x03fqn\x12 \n" +
+	"identifier\"\xa0\x01\n" +
+	"\bArtifact\x12.\n" +
+	"\x03fqn\x18\x01 \x01(\v2\x1c.registry.FullyQualifiedNameR\x03fqn\x12 \n" +
 	"\vversionHash\x18\x02 \x01(\tR\vversionHash\x12\x12\n" +
 	"\x04tags\x18\x03 \x03(\tR\x04tags\x12.\n" +
 	"\bmetadata\x18\x04 \x01(\v2\x12.registry.MetaDataR\bmetadata\"V\n" +
@@ -681,27 +755,30 @@ const file_registry_proto_rawDesc = "" +
 	"\a_authorB\a\n" +
 	"\x05_name\"H\n" +
 	"\x14ArtifactListResponse\x120\n" +
-	"\tartifacts\x18\x01 \x03(\v2\x12.registry.ArtifactR\tartifacts\"\x8a\x01\n" +
-	"\x13PullArtifactRequest\x12-\n" +
-	"\x03fqn\x18\x01 \x01(\v2\x1b.registry.FullQualifiedNameR\x03fqn\x12\"\n" +
+	"\tartifacts\x18\x01 \x03(\v2\x12.registry.ArtifactR\tartifacts\"\x8b\x01\n" +
+	"\x13PullArtifactRequest\x12.\n" +
+	"\x03fqn\x18\x01 \x01(\v2\x1c.registry.FullyQualifiedNameR\x03fqn\x12\"\n" +
 	"\vversionHash\x18\x02 \x01(\tH\x00R\vversionHash\x12\x12\n" +
 	"\x03tag\x18\x03 \x01(\tH\x00R\x03tagB\f\n" +
 	"\n" +
 	"identifier\"%\n" +
 	"\x0fArtifactContent\x12\x12\n" +
-	"\x04data\x18\x01 \x01(\fR\x04data\"t\n" +
-	"\x15UploadArtifactRequest\x12-\n" +
-	"\x03fqn\x18\x01 \x01(\v2\x1b.registry.FullQualifiedNameR\x03fqn\x12\x12\n" +
-	"\x04tags\x18\x02 \x03(\tR\x04tags\x12\x18\n" +
-	"\acontent\x18\x03 \x01(\fR\acontent\"x\n" +
-	"\x13AddRemoveTagRequest\x12-\n" +
-	"\x03fqn\x18\x01 \x01(\v2\x1b.registry.FullQualifiedNameR\x03fqn\x12 \n" +
+	"\x04data\x18\x01 \x01(\fR\x04data\"\x91\x01\n" +
+	"\x15UploadArtifactRequest\x126\n" +
+	"\bmetadata\x18\x01 \x01(\v2\x18.registry.UploadMetadataH\x00R\bmetadata\x125\n" +
+	"\acontent\x18\x02 \x01(\v2\x19.registry.ArtifactContentH\x00R\acontentB\t\n" +
+	"\arequest\"T\n" +
+	"\x0eUploadMetadata\x12.\n" +
+	"\x03fqn\x18\x01 \x01(\v2\x1c.registry.FullyQualifiedNameR\x03fqn\x12\x12\n" +
+	"\x04tags\x18\x02 \x03(\tR\x04tags\"y\n" +
+	"\x13AddRemoveTagRequest\x12.\n" +
+	"\x03fqn\x18\x01 \x01(\v2\x1c.registry.FullyQualifiedNameR\x03fqn\x12 \n" +
 	"\vversionHash\x18\x02 \x01(\tR\vversionHash\x12\x10\n" +
-	"\x03tag\x18\x03 \x01(\tR\x03tag2\xf1\x03\n" +
+	"\x03tag\x18\x03 \x01(\tR\x03tag2\xf3\x03\n" +
 	"\x0fRegistryService\x12I\n" +
 	"\x0eQueryArtifacts\x12\x17.registry.ArtifactQuery\x1a\x1e.registry.ArtifactListResponse\x12J\n" +
-	"\fPullArtifact\x12\x1d.registry.PullArtifactRequest\x1a\x19.registry.ArtifactContent0\x01\x12E\n" +
-	"\x0eUploadArtifact\x12\x1f.registry.UploadArtifactRequest\x1a\x12.registry.Artifact\x12B\n" +
+	"\fPullArtifact\x12\x1d.registry.PullArtifactRequest\x1a\x19.registry.ArtifactContent0\x01\x12G\n" +
+	"\x0eUploadArtifact\x12\x1f.registry.UploadArtifactRequest\x1a\x12.registry.Artifact(\x01\x12B\n" +
 	"\x0eDeleteArtifact\x12\x1c.registry.ArtifactIdentifier\x1a\x12.registry.Artifact\x12?\n" +
 	"\vGetArtifact\x12\x1c.registry.ArtifactIdentifier\x1a\x12.registry.Artifact\x12;\n" +
 	"\x06AddTag\x12\x1d.registry.AddRemoveTagRequest\x1a\x12.registry.Artifact\x12>\n" +
@@ -720,9 +797,9 @@ func file_registry_proto_rawDescGZIP() []byte {
 	return file_registry_proto_rawDescData
 }
 
-var file_registry_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_registry_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_registry_proto_goTypes = []any{
-	(*FullQualifiedName)(nil),     // 0: registry.FullQualifiedName
+	(*FullyQualifiedName)(nil),    // 0: registry.FullyQualifiedName
 	(*ArtifactIdentifier)(nil),    // 1: registry.ArtifactIdentifier
 	(*Artifact)(nil),              // 2: registry.Artifact
 	(*MetaData)(nil),              // 3: registry.MetaData
@@ -731,37 +808,40 @@ var file_registry_proto_goTypes = []any{
 	(*PullArtifactRequest)(nil),   // 6: registry.PullArtifactRequest
 	(*ArtifactContent)(nil),       // 7: registry.ArtifactContent
 	(*UploadArtifactRequest)(nil), // 8: registry.UploadArtifactRequest
-	(*AddRemoveTagRequest)(nil),   // 9: registry.AddRemoveTagRequest
-	(*timestamppb.Timestamp)(nil), // 10: google.protobuf.Timestamp
+	(*UploadMetadata)(nil),        // 9: registry.UploadMetadata
+	(*AddRemoveTagRequest)(nil),   // 10: registry.AddRemoveTagRequest
+	(*timestamppb.Timestamp)(nil), // 11: google.protobuf.Timestamp
 }
 var file_registry_proto_depIdxs = []int32{
-	0,  // 0: registry.ArtifactIdentifier.fqn:type_name -> registry.FullQualifiedName
-	0,  // 1: registry.Artifact.fqn:type_name -> registry.FullQualifiedName
+	0,  // 0: registry.ArtifactIdentifier.fqn:type_name -> registry.FullyQualifiedName
+	0,  // 1: registry.Artifact.fqn:type_name -> registry.FullyQualifiedName
 	3,  // 2: registry.Artifact.metadata:type_name -> registry.MetaData
-	10, // 3: registry.MetaData.created:type_name -> google.protobuf.Timestamp
+	11, // 3: registry.MetaData.created:type_name -> google.protobuf.Timestamp
 	2,  // 4: registry.ArtifactListResponse.artifacts:type_name -> registry.Artifact
-	0,  // 5: registry.PullArtifactRequest.fqn:type_name -> registry.FullQualifiedName
-	0,  // 6: registry.UploadArtifactRequest.fqn:type_name -> registry.FullQualifiedName
-	0,  // 7: registry.AddRemoveTagRequest.fqn:type_name -> registry.FullQualifiedName
-	4,  // 8: registry.RegistryService.QueryArtifacts:input_type -> registry.ArtifactQuery
-	6,  // 9: registry.RegistryService.PullArtifact:input_type -> registry.PullArtifactRequest
-	8,  // 10: registry.RegistryService.UploadArtifact:input_type -> registry.UploadArtifactRequest
-	1,  // 11: registry.RegistryService.DeleteArtifact:input_type -> registry.ArtifactIdentifier
-	1,  // 12: registry.RegistryService.GetArtifact:input_type -> registry.ArtifactIdentifier
-	9,  // 13: registry.RegistryService.AddTag:input_type -> registry.AddRemoveTagRequest
-	9,  // 14: registry.RegistryService.RemoveTag:input_type -> registry.AddRemoveTagRequest
-	5,  // 15: registry.RegistryService.QueryArtifacts:output_type -> registry.ArtifactListResponse
-	7,  // 16: registry.RegistryService.PullArtifact:output_type -> registry.ArtifactContent
-	2,  // 17: registry.RegistryService.UploadArtifact:output_type -> registry.Artifact
-	2,  // 18: registry.RegistryService.DeleteArtifact:output_type -> registry.Artifact
-	2,  // 19: registry.RegistryService.GetArtifact:output_type -> registry.Artifact
-	2,  // 20: registry.RegistryService.AddTag:output_type -> registry.Artifact
-	2,  // 21: registry.RegistryService.RemoveTag:output_type -> registry.Artifact
-	15, // [15:22] is the sub-list for method output_type
-	8,  // [8:15] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	0,  // 5: registry.PullArtifactRequest.fqn:type_name -> registry.FullyQualifiedName
+	9,  // 6: registry.UploadArtifactRequest.metadata:type_name -> registry.UploadMetadata
+	7,  // 7: registry.UploadArtifactRequest.content:type_name -> registry.ArtifactContent
+	0,  // 8: registry.UploadMetadata.fqn:type_name -> registry.FullyQualifiedName
+	0,  // 9: registry.AddRemoveTagRequest.fqn:type_name -> registry.FullyQualifiedName
+	4,  // 10: registry.RegistryService.QueryArtifacts:input_type -> registry.ArtifactQuery
+	6,  // 11: registry.RegistryService.PullArtifact:input_type -> registry.PullArtifactRequest
+	8,  // 12: registry.RegistryService.UploadArtifact:input_type -> registry.UploadArtifactRequest
+	1,  // 13: registry.RegistryService.DeleteArtifact:input_type -> registry.ArtifactIdentifier
+	1,  // 14: registry.RegistryService.GetArtifact:input_type -> registry.ArtifactIdentifier
+	10, // 15: registry.RegistryService.AddTag:input_type -> registry.AddRemoveTagRequest
+	10, // 16: registry.RegistryService.RemoveTag:input_type -> registry.AddRemoveTagRequest
+	5,  // 17: registry.RegistryService.QueryArtifacts:output_type -> registry.ArtifactListResponse
+	7,  // 18: registry.RegistryService.PullArtifact:output_type -> registry.ArtifactContent
+	2,  // 19: registry.RegistryService.UploadArtifact:output_type -> registry.Artifact
+	2,  // 20: registry.RegistryService.DeleteArtifact:output_type -> registry.Artifact
+	2,  // 21: registry.RegistryService.GetArtifact:output_type -> registry.Artifact
+	2,  // 22: registry.RegistryService.AddTag:output_type -> registry.Artifact
+	2,  // 23: registry.RegistryService.RemoveTag:output_type -> registry.Artifact
+	17, // [17:24] is the sub-list for method output_type
+	10, // [10:17] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_registry_proto_init() }
@@ -778,13 +858,17 @@ func file_registry_proto_init() {
 		(*PullArtifactRequest_VersionHash)(nil),
 		(*PullArtifactRequest_Tag)(nil),
 	}
+	file_registry_proto_msgTypes[8].OneofWrappers = []any{
+		(*UploadArtifactRequest_Metadata)(nil),
+		(*UploadArtifactRequest_Content)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_registry_proto_rawDesc), len(file_registry_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

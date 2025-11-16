@@ -4,10 +4,16 @@ import (
 	"artifact-registry/orm"
 	"artifact-registry/proto_gen"
 	"context"
+	"errors"
+	"io"
 
 	"github.com/rs/zerolog/log"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
+const ChunkSize = 1024 * 1024 * 3 // 3MB
 
 func (s *Server) QueryArtifacts(
 	ctx context.Context,
@@ -29,7 +35,7 @@ func (s *Server) QueryArtifacts(
 		return &proto_gen.ArtifactListResponse{}, nil
 	}
 
-	fqn := &proto_gen.FullQualifiedName{}
+	fqn := &proto_gen.FullyQualifiedName{}
 	if query.Source != nil {
 		fqn.Source = *query.Source
 	}
@@ -51,7 +57,7 @@ func (s *Server) QueryArtifacts(
 	protoArtifacts := make([]*proto_gen.Artifact, 0, len(artifacts))
 	for _, a := range artifacts {
 		protoArtifacts = append(protoArtifacts, &proto_gen.Artifact{
-			Fqn: &proto_gen.FullQualifiedName{
+			Fqn: &proto_gen.FullyQualifiedName{
 				Source: a.Source,
 				Author: a.Author,
 				Name:   a.Name,
@@ -74,6 +80,41 @@ func (s *Server) PullArtifact(
 	req *proto_gen.PullArtifactRequest,
 	serv proto_gen.RegistryService_PullArtifactServer,
 ) error {
+	err := validateFQN(req.Fqn)
+	if err != nil {
+		log.Error().Err(err).Msg("Invalid FQN in PullArtifactRequest")
+
+		return err
+	}
+
+	// Validate identifier is not empty
+	switch identifier := req.Identifier.(type) {
+	case *proto_gen.PullArtifactRequest_VersionHash:
+		if identifier.VersionHash == "" {
+			log.Error().Msg("Empty versionHash in PullArtifactRequest")
+
+			return &ServiceError{
+				Code:    codes.InvalidArgument,
+				Message: "versionHash cannot be empty",
+				Inner:   ErrEmptyVersionHash,
+			}
+		}
+	case *proto_gen.PullArtifactRequest_Tag:
+		if identifier.Tag == "" {
+			log.Error().Msg("Empty tag in PullArtifactRequest")
+
+			return &ServiceError{
+				Code:    codes.InvalidArgument,
+				Message: "tag cannot be empty",
+				Inner:   ErrEmptyTag,
+			}
+		}
+	case nil:
+		log.Error().Msg("No identifier provided in PullArtifactRequest")
+
+		return newInvalidIdentifierError()
+	}
+
 	log.Info().
 		Str("source", req.Fqn.Source).
 		Str("author", req.Fqn.Author).
@@ -87,7 +128,6 @@ func (s *Server) PullArtifact(
 	}
 
 	var artifactMeta *orm.Artifact
-	var err error
 
 	switch identifier := req.Identifier.(type) {
 	case *proto_gen.PullArtifactRequest_VersionHash:
@@ -104,10 +144,6 @@ func (s *Server) PullArtifact(
 
 			return wrapServiceError(err, "retrieving artifact by tag")
 		}
-	default:
-		log.Error().Msg("No valid identifier provided in PullArtifactRequest")
-
-		return newInvalidIdentifierError()
 	}
 
 	// Get the artifact from the registry
@@ -122,20 +158,16 @@ func (s *Server) PullArtifact(
 	versionHash := artifactMeta.Hash
 
 	// Stream the artifact content back to the client in chunks
-	const chunkSize = 64 * 1024 // 64KB chunks
 	totalSize := len(content)
 
 	log.Info().
 		Str("versionHash", versionHash).
 		Int("totalSize", totalSize).
-		Int("chunkSize", chunkSize).
+		Int("chunkSize", ChunkSize).
 		Msg("Starting to stream artifact content")
 
-	for offset := 0; offset < totalSize; offset += chunkSize {
-		end := offset + chunkSize
-		if end > totalSize {
-			end = totalSize
-		}
+	for offset := 0; offset < totalSize; offset += ChunkSize {
+		end := min(offset+ChunkSize, totalSize)
 
 		chunk := content[offset:end]
 		response := &proto_gen.ArtifactContent{
@@ -162,7 +194,7 @@ func (s *Server) PullArtifact(
 	log.Info().
 		Str("versionHash", versionHash).
 		Int("totalSize", totalSize).
-		Int("chunksCount", (totalSize+chunkSize-1)/chunkSize).
+		Int("chunksCount", (totalSize+ChunkSize-1)/ChunkSize).
 		Msg("Successfully streamed complete artifact")
 
 	// Increment pull count
@@ -174,37 +206,146 @@ func (s *Server) PullArtifact(
 }
 
 func (s *Server) UploadArtifact(
-	_ context.Context,
-	req *proto_gen.UploadArtifactRequest,
-) (*proto_gen.Artifact, error) {
-	log.Info().
-		Str("source", req.Fqn.Source).
-		Str("author", req.Fqn.Author).
-		Str("name", req.Fqn.Name).
-		Msg("UploadArtifact triggered")
+	stream grpc.ClientStreamingServer[proto_gen.UploadArtifactRequest, proto_gen.Artifact],
+) error {
+	firstMessage, err := stream.Recv()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to receive first upload artifact message")
 
-	if s.registry == nil {
-		return nil, newRegistryUnavailableError("artifact upload")
+		return wrapServiceError(err, "receiving first upload artifact message")
 	}
 
-	versionHash, err := s.registry.StoreArtifact(req.Fqn, req.Content)
+	metadata := firstMessage.GetMetadata()
+	if metadata == nil {
+		log.Error().Msg("UploadArtifactRequest missing metadata")
+
+		return &ServiceError{
+			Code:    codes.InvalidArgument,
+			Message: "Expected first message to be metadata",
+		}
+	}
+
+	err = validateFQN(metadata.Fqn)
+	if err != nil {
+		log.Error().Err(err).Msg("Invalid FQN in UploadArtifactRequest metadata")
+
+		return err
+	}
+
+	log.Info().
+		Str("source", metadata.Fqn.Source).
+		Str("author", metadata.Fqn.Author).
+		Str("name", metadata.Fqn.Name).
+		Msg("UploadArtifact triggered")
+
+	//nolint:godox // Will be implemented by other PRs
+	// TODO: Implement stream writing to registry backend
+	var content []byte
+
+	for {
+		message, err := stream.Recv()
+		log.Debug().Msg("Read chunk from upload stream")
+		if errors.Is(err, io.EOF) {
+			break
+		}
+
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to receive upload artifact message")
+
+			return wrapServiceError(err, "receiving upload artifact message")
+		}
+
+		chunk := message.GetContent()
+		if chunk == nil {
+			log.Error().Msg("UploadArtifactRequest missing content chunk")
+
+			return &ServiceError{
+				Code:    codes.InvalidArgument,
+				Message: "Expected content chunk in upload artifact message",
+			}
+		}
+
+		content = append(content, chunk.Data...)
+	}
+
+	if s.registry == nil {
+		return newRegistryUnavailableError("artifact upload")
+	}
+
+	versionHash, err := s.registry.StoreArtifact(metadata.Fqn, content)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to store artifact")
 
-		return nil, wrapServiceError(err, "storing artifact")
+		return wrapServiceError(err, "storing artifact")
 	}
 
-	return &proto_gen.Artifact{
-		Fqn:         req.Fqn,
+	err = orm.StoreArtifactMeta(metadata.Fqn, versionHash)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to store artifact metadata")
+
+		return wrapServiceError(err, "storing artifact metadata")
+	}
+
+	// Add tags to the artifact
+	for _, tag := range metadata.Tags {
+		err = orm.AddTag(stream.Context(), metadata.Fqn, versionHash, tag)
+		if err != nil {
+			log.Error().
+				Err(err).
+				Str("tag", tag).
+				Msg("Failed to add tag to artifact")
+
+			return wrapServiceError(err, "adding tag to artifact")
+		}
+	}
+
+	artifact, err := orm.GetArtifactMetaByHash(
+		stream.Context(),
+		metadata.Fqn,
+		versionHash,
+	)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to retrieve stored artifact metadata")
+
+		return wrapServiceError(err, "retrieving stored artifact metadata")
+	}
+
+	log.Info().
+		Str("source", artifact.Source).
+		Str("author", artifact.Author).
+		Str("name", artifact.Name).
+		Str("versionHash", versionHash).
+		Msg("Artifact uploaded successfully")
+
+	err = stream.SendAndClose(&proto_gen.Artifact{
+		Fqn:         metadata.Fqn,
 		VersionHash: versionHash,
-		Tags:        req.Tags,
-	}, nil
+		Tags:        metadata.Tags,
+		Metadata: &proto_gen.MetaData{
+			Created: timestamppb.New(artifact.CreatedAt),
+			Pulls:   artifact.PullsCount,
+		},
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to send upload artifact response")
+
+		return wrapServiceError(err, "sending upload artifact response")
+	}
+
+	return nil
 }
 
 func (s *Server) DeleteArtifact(
 	ctx context.Context,
 	id *proto_gen.ArtifactIdentifier,
 ) (*proto_gen.Artifact, error) {
+	err := validateFQN(id.Fqn)
+	if err != nil {
+		log.Error().Err(err).Msg("Invalid FQN in DeleteArtifact request")
+
+		return nil, err
+	}
+
 	log.Info().
 		Str("source", id.Fqn.Source).
 		Str("author", id.Fqn.Author).
@@ -233,7 +374,7 @@ func (s *Server) DeleteArtifact(
 	}
 
 	result := &proto_gen.Artifact{
-		Fqn: &proto_gen.FullQualifiedName{
+		Fqn: &proto_gen.FullyQualifiedName{
 			Source: artifactMeta.Source,
 			Author: artifactMeta.Author,
 			Name:   artifactMeta.Name,
@@ -253,6 +394,13 @@ func (s *Server) GetArtifact(
 	ctx context.Context,
 	id *proto_gen.ArtifactIdentifier,
 ) (*proto_gen.Artifact, error) {
+	err := validateFQN(id.Fqn)
+	if err != nil {
+		log.Error().Err(err).Msg("Invalid FQN in GetArtifact request")
+
+		return nil, err
+	}
+
 	log.Info().
 		Str("source", id.Fqn.Source).
 		Str("author", id.Fqn.Author).
@@ -271,7 +419,7 @@ func (s *Server) GetArtifact(
 	}
 
 	return &proto_gen.Artifact{
-		Fqn: &proto_gen.FullQualifiedName{
+		Fqn: &proto_gen.FullyQualifiedName{
 			Source: artifactMeta.Source,
 			Author: artifactMeta.Author,
 			Name:   artifactMeta.Name,
@@ -289,6 +437,13 @@ func (s *Server) AddTag(
 	ctx context.Context,
 	req *proto_gen.AddRemoveTagRequest,
 ) (*proto_gen.Artifact, error) {
+	err := validateAddRemoveTagRequest(req)
+	if err != nil {
+		log.Error().Err(err).Msg("Invalid AddTag request")
+
+		return nil, err
+	}
+
 	log.Info().
 		Str("source", req.Fqn.Source).
 		Str("author", req.Fqn.Author).
@@ -300,7 +455,7 @@ func (s *Server) AddTag(
 		return nil, newRegistryUnavailableError("adding tag")
 	}
 
-	err := orm.AddTag(ctx, req.Fqn, req.VersionHash, req.Tag)
+	err = orm.AddTag(ctx, req.Fqn, req.VersionHash, req.Tag)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to add tag")
 
@@ -322,6 +477,13 @@ func (s *Server) RemoveTag(
 	ctx context.Context,
 	req *proto_gen.AddRemoveTagRequest,
 ) (*proto_gen.Artifact, error) {
+	err := validateAddRemoveTagRequest(req)
+	if err != nil {
+		log.Error().Err(err).Msg("Invalid RemoveTag request")
+
+		return nil, err
+	}
+
 	log.Info().
 		Str("source", req.Fqn.Source).
 		Str("author", req.Fqn.Author).
@@ -333,7 +495,7 @@ func (s *Server) RemoveTag(
 		return nil, newRegistryUnavailableError("removing tag")
 	}
 
-	err := orm.RemoveTag(ctx, req.Fqn, req.Tag)
+	err = orm.RemoveTag(ctx, req.Fqn, req.Tag)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to remove tag")
 
@@ -355,8 +517,14 @@ func resolveIdentifier(
 	ctx context.Context,
 	id *proto_gen.ArtifactIdentifier,
 ) (*orm.Artifact, error) {
+	err := validateArtifactIdentifier(id)
+	if err != nil {
+		log.Error().Err(err).Msg("Invalid artifact identifier")
+
+		return nil, err
+	}
+
 	var artifactMeta *orm.Artifact
-	var err error
 	switch identifier := id.Identifier.(type) {
 	case *proto_gen.ArtifactIdentifier_VersionHash:
 		artifactMeta, err = orm.GetArtifactMetaByHash(ctx, id.Fqn, identifier.VersionHash)
@@ -372,10 +540,6 @@ func resolveIdentifier(
 
 			return nil, wrapServiceError(err, "resolving artifact by tag")
 		}
-	default:
-		log.Error().Msg("No valid identifier provided")
-
-		return nil, newInvalidIdentifierError()
 	}
 
 	return artifactMeta, nil
