@@ -14,7 +14,7 @@ import (
 func main() {
 	// initialize gRPC server
 	shareddeps.InitGRPCServer(
-		config.Cfg, "artifact-registry", "v0.1.0", config.Defaults...,
+		config.Cfg, "artifact-registry", "v0.2.0", config.Defaults...,
 	)
 	orm.InitDB()
 	// Initialize filesystem registry
