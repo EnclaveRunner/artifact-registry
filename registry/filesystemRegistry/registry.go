@@ -17,7 +17,7 @@ import (
 // ErrArtifactNotFound is returned when an artifact is not found
 var ErrArtifactNotFound = errors.New("artifact not found")
 
-// directory where artifacts are temporarely stored while they dont have a
+// directory where artifacts are temporarily stored while they dont have a
 // version hash
 var uploadDir = "./uploads"
 
