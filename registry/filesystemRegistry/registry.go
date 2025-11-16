@@ -19,7 +19,7 @@ var (
 	ErrSecurityViolation = errors.New("security violation detected")
 )
 
-// directory where artifacts are temporarely stored while they dont have a
+// directory where artifacts are temporarily stored while they don't have a
 // version hash
 var uploadDir = "./uploads"
 
@@ -49,7 +49,7 @@ func (r *FilesystemRegistry) StoreArtifact(
 	if err != nil {
 		return "", fmt.Errorf("failed to generate UUID: %w", err)
 	}
-	uniqueTempFileName := uploadDir + "/" + uuidVal.String() + ".tmp"
+	uniqueTempFileName := filepath.Join(uploadDir, uuidVal.String()+".tmp")
 
 	// Ensure uniqueTempFileName is within the intended directory to prevent file
 	// inclusion
