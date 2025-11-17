@@ -311,7 +311,10 @@ func (s *Server) UploadArtifact(
 	}
 
 	result, ok := <-resultChan
-	if !ok {
+		if ctxErr := stream.Context().Err(); ctxErr != nil {
+			return wrapServiceError(ctxErr, "artifact upload cancelled")
+		}
+		return wrapServiceError(errors.New("unexpected channel close"), "artifact upload")
 		return wrapServiceError(context.Canceled, "artifact upload cancelled")
 	}
 	versionHash := result.versionHash
