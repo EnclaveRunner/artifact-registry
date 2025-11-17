@@ -80,7 +80,7 @@ func (r *FilesystemRegistry) StoreArtifact(
 		return "", fmt.Errorf("error creating file: %w", err)
 	}
 	defer func() {
-		if cerr := file.Close(); cerr != nil {
+		if cerr := file.Close(); cerr != nil && err == nil {
 			err = fmt.Errorf("error closing file: %w", cerr)
 		}
 		if err != nil {

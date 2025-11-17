@@ -253,6 +253,7 @@ func (s *Server) UploadArtifact(
 	defer cancel()
 
 	go func() {
+		defer pr.Close()
 		versionHash, err := s.registry.StoreArtifact(metadata.Fqn, pr)
 		select {
 		case resultChan <- struct {
@@ -262,7 +263,7 @@ func (s *Server) UploadArtifact(
 		case <-ctx.Done():
 		}
 		close(resultChan)
-	}()
+}()
 
 	for {
 		message, err := stream.Recv()
