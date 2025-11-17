@@ -309,7 +309,10 @@ func (s *Server) UploadArtifact(
 		return wrapServiceError(err, "closing artifact content writer")
 	}
 
-	result := <-resultChan
+	result, ok := <-resultChan
+	if !ok {
+		return wrapServiceError(context.Canceled, "artifact upload cancelled")
+	}
 	versionHash := result.versionHash
 	err = result.err
 	if err != nil {
