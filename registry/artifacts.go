@@ -238,9 +238,40 @@ func (s *Server) UploadArtifact(
 		Str("name", metadata.Fqn.Name).
 		Msg("UploadArtifact triggered")
 
-	//nolint:godox // Will be implemented by other PRs
-	// TODO: Implement stream writing to registry backend
-	var content []byte
+	if s.registry == nil {
+		return newRegistryUnavailableError("artifact upload")
+	}
+
+	pr, pw := io.Pipe()
+
+	resultChan := make(chan struct {
+		versionHash string
+		err         error
+	}, 1)
+
+	ctx, cancel := context.WithCancel(stream.Context())
+	defer cancel()
+
+	go func() {
+		defer func() {
+			if err := pr.Close(); err != nil {
+				log.Error().
+					Err(err).
+					Msg("Failed to close pipe reader in upload goroutine")
+			}
+		}()
+		versionHash, err := s.registry.StoreArtifact(metadata.Fqn, pr)
+		select {
+		case resultChan <- struct {
+			versionHash string
+			err         error
+		}{versionHash, err}:
+		case <-ctx.Done():
+		}
+		close(resultChan)
+	}()
+
+	defer func() { <-resultChan }()
 
 	for {
 		message, err := stream.Recv()
@@ -251,6 +282,7 @@ func (s *Server) UploadArtifact(
 
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to receive upload artifact message")
+			_ = pw.CloseWithError(err)
 
 			return wrapServiceError(err, "receiving upload artifact message")
 		}
@@ -258,6 +290,12 @@ func (s *Server) UploadArtifact(
 		chunk := message.GetContent()
 		if chunk == nil {
 			log.Error().Msg("UploadArtifactRequest missing content chunk")
+			err = pw.Close()
+			if err != nil {
+				log.Error().
+					Err(err).
+					Msg("Failed to close pipe writer after missing chunk")
+			}
 
 			return &ServiceError{
 				Code:    codes.InvalidArgument,
@@ -265,14 +303,27 @@ func (s *Server) UploadArtifact(
 			}
 		}
 
-		content = append(content, chunk.Data...)
+		_, err = pw.Write(chunk.Data)
+		if err != nil {
+			_ = pw.CloseWithError(err)
+			log.Error().Msgf("Error writing chunk to writer: %v", err)
+		}
 	}
 
-	if s.registry == nil {
-		return newRegistryUnavailableError("artifact upload")
+	// Close the writer when done
+	err = pw.Close()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to close artifact content writer")
+
+		return wrapServiceError(err, "closing artifact content writer")
 	}
 
-	versionHash, err := s.registry.StoreArtifact(metadata.Fqn, content)
+	result := <-resultChan
+	if ctxErr := stream.Context().Err(); ctxErr != nil {
+		return wrapServiceError(context.Canceled, "artifact upload cancelled")
+	}
+	versionHash := result.versionHash
+	err = result.err
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to store artifact")
 
@@ -282,6 +333,7 @@ func (s *Server) UploadArtifact(
 	err = orm.StoreArtifactMeta(metadata.Fqn, versionHash)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to store artifact metadata")
+		_ = s.registry.DeleteArtifact(metadata.Fqn, versionHash)
 
 		return wrapServiceError(err, "storing artifact metadata")
 	}
