@@ -253,7 +253,13 @@ func (s *Server) UploadArtifact(
 	defer cancel()
 
 	go func() {
-		defer pr.Close()
+		defer func() {
+			if err := pr.Close(); err != nil {
+				log.Error().
+					Err(err).
+					Msg("Failed to close pipe reader in upload goroutine")
+			}
+		}()
 		versionHash, err := s.registry.StoreArtifact(metadata.Fqn, pr)
 		select {
 		case resultChan <- struct {
@@ -263,6 +269,8 @@ func (s *Server) UploadArtifact(
 		case <-ctx.Done():
 		}
 		close(resultChan)
+	}()
+
 	defer func() { <-resultChan }()
 
 	for {
@@ -281,7 +289,12 @@ func (s *Server) UploadArtifact(
 
 		chunk := message.GetContent()
 		if chunk == nil {
-			_ = pw.CloseWithError(errors.New("missing content chunk"))
+			log.Error().Msg("UploadArtifactRequest missing content chunk")
+			err = pw.Close()
+			if err != nil {
+				log.Error().
+					Err(err).
+					Msg("Failed to close pipe writer after missing chunk")
 			}
 
 			return &ServiceError{
@@ -305,11 +318,8 @@ func (s *Server) UploadArtifact(
 		return wrapServiceError(err, "closing artifact content writer")
 	}
 
-	result, ok := <-resultChan
-		if ctxErr := stream.Context().Err(); ctxErr != nil {
-			return wrapServiceError(ctxErr, "artifact upload cancelled")
-		}
-		return wrapServiceError(errors.New("unexpected channel close"), "artifact upload")
+	result := <-resultChan
+	if ctxErr := stream.Context().Err(); ctxErr != nil {
 		return wrapServiceError(context.Canceled, "artifact upload cancelled")
 	}
 	versionHash := result.versionHash
