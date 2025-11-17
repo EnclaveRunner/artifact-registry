@@ -263,7 +263,7 @@ func (s *Server) UploadArtifact(
 		case <-ctx.Done():
 		}
 		close(resultChan)
-}()
+	defer func() { <-resultChan }()
 
 	for {
 		message, err := stream.Recv()
