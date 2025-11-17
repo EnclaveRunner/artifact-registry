@@ -247,7 +247,7 @@ func (s *Server) UploadArtifact(
 	resultChan := make(chan struct {
 		versionHash string
 		err         error
-	})
+	}, 1)
 
 	ctx, cancel := context.WithCancel(stream.Context())
 	defer cancel()
