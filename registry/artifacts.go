@@ -281,12 +281,7 @@ func (s *Server) UploadArtifact(
 
 		chunk := message.GetContent()
 		if chunk == nil {
-			log.Error().Msg("UploadArtifactRequest missing content chunk")
-			err = pw.Close()
-			if err != nil {
-				log.Error().
-					Err(err).
-					Msg("Failed to close pipe writer after missing chunk")
+			_ = pw.CloseWithError(errors.New("missing content chunk"))
 			}
 
 			return &ServiceError{
