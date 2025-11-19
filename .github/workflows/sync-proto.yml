@@ -90,16 +90,16 @@ jobs:
         with:
           token: ${{ secrets.BOT_PAT }}
           path: target-repo
-          commit-message: "chore: update Proto specification"
-          branch: update-proto-spec
+          commit-message: "chore: update Artifact Registry proto specification"
+          branch: update-registry-proto-spec
           committer: "Enclave Bot <enclave-automation@marvin-fuchs.de>"
           author: "Enclave Bot <enclave-automation@marvin-fuchs.de>"
-          title: "chore: Update Proto specification"
+          title: "chore: Update Artifact Registry proto specification"
           body: |
             # Auto-Sync of Proto Specification 📋
             Automated update from ${{ github.repository }}.
 
-            This PR syncs the latest Proto specification file.
+            This PR syncs the latest Artifact Registry proto specification file.
 
             **Source commit:** ${{ github.sha }}
           base: main
