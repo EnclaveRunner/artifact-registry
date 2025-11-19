@@ -77,21 +77,21 @@ func (s *Server) QueryArtifacts(
 }
 
 func (s *Server) PullArtifact(
-	req *proto_gen.PullArtifactRequest,
+	req *proto_gen.ArtifactIdentifier,
 	serv proto_gen.RegistryService_PullArtifactServer,
 ) error {
 	err := validateFQN(req.Fqn)
 	if err != nil {
-		log.Error().Err(err).Msg("Invalid FQN in PullArtifactRequest")
+		log.Error().Err(err).Msg("Invalid FQN in ArtifactIdentifier")
 
 		return err
 	}
 
 	// Validate identifier is not empty
 	switch identifier := req.Identifier.(type) {
-	case *proto_gen.PullArtifactRequest_VersionHash:
+	case *proto_gen.ArtifactIdentifier_VersionHash:
 		if identifier.VersionHash == "" {
-			log.Error().Msg("Empty versionHash in PullArtifactRequest")
+			log.Error().Msg("Empty versionHash in ArtifactIdentifier")
 
 			return &ServiceError{
 				Code:    codes.InvalidArgument,
@@ -99,9 +99,9 @@ func (s *Server) PullArtifact(
 				Inner:   ErrEmptyVersionHash,
 			}
 		}
-	case *proto_gen.PullArtifactRequest_Tag:
+	case *proto_gen.ArtifactIdentifier_Tag:
 		if identifier.Tag == "" {
-			log.Error().Msg("Empty tag in PullArtifactRequest")
+			log.Error().Msg("Empty tag in ArtifactIdentifier")
 
 			return &ServiceError{
 				Code:    codes.InvalidArgument,
@@ -110,7 +110,7 @@ func (s *Server) PullArtifact(
 			}
 		}
 	case nil:
-		log.Error().Msg("No identifier provided in PullArtifactRequest")
+		log.Error().Msg("No identifier provided in ArtifactIdentifier")
 
 		return newInvalidIdentifierError()
 	}
@@ -130,14 +130,14 @@ func (s *Server) PullArtifact(
 	var artifactMeta *orm.Artifact
 
 	switch identifier := req.Identifier.(type) {
-	case *proto_gen.PullArtifactRequest_VersionHash:
+	case *proto_gen.ArtifactIdentifier_VersionHash:
 		artifactMeta, err = orm.GetArtifactMetaByHash(serv.Context(), req.Fqn, identifier.VersionHash)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to get artifact by version hash")
 
 			return wrapServiceError(err, "retrieving artifact by version hash")
 		}
-	case *proto_gen.PullArtifactRequest_Tag:
+	case *proto_gen.ArtifactIdentifier_Tag:
 		artifactMeta, err = orm.GetArtifactMetaByTag(serv.Context(), req.Fqn, identifier.Tag)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to get artifact by tag")
