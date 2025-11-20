@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"time"
 
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
@@ -198,7 +199,7 @@ func (s *Server) PullArtifact(
 		Msg("Successfully streamed complete artifact")
 
 	// Increment pull count
-	if err := orm.IncreasePullCount(req.Fqn, versionHash); err != nil {
+	if err := orm.IncreasePullCount(serv.Context(), req.Fqn, versionHash); err != nil {
 		log.Warn().Err(err).Msg("Failed to increment pull count")
 	}
 
@@ -330,7 +331,11 @@ func (s *Server) UploadArtifact(
 		return wrapServiceError(err, "storing artifact")
 	}
 
-	err = orm.StoreArtifactMeta(metadata.Fqn, versionHash)
+	err = orm.CreateArtifactMeta(
+		stream.Context(),
+		metadata.Fqn,
+		versionHash,
+		metadata.Tags...)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to store artifact metadata")
 		_ = s.registry.DeleteArtifact(metadata.Fqn, versionHash)
@@ -338,34 +343,10 @@ func (s *Server) UploadArtifact(
 		return wrapServiceError(err, "storing artifact metadata")
 	}
 
-	// Add tags to the artifact
-	for _, tag := range metadata.Tags {
-		err = orm.AddTag(stream.Context(), metadata.Fqn, versionHash, tag)
-		if err != nil {
-			log.Error().
-				Err(err).
-				Str("tag", tag).
-				Msg("Failed to add tag to artifact")
-
-			return wrapServiceError(err, "adding tag to artifact")
-		}
-	}
-
-	artifact, err := orm.GetArtifactMetaByHash(
-		stream.Context(),
-		metadata.Fqn,
-		versionHash,
-	)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to retrieve stored artifact metadata")
-
-		return wrapServiceError(err, "retrieving stored artifact metadata")
-	}
-
 	log.Info().
-		Str("source", artifact.Source).
-		Str("author", artifact.Author).
-		Str("name", artifact.Name).
+		Str("source", metadata.Fqn.Source).
+		Str("author", metadata.Fqn.Author).
+		Str("name", metadata.Fqn.Name).
 		Str("versionHash", versionHash).
 		Msg("Artifact uploaded successfully")
 
@@ -374,8 +355,8 @@ func (s *Server) UploadArtifact(
 		VersionHash: versionHash,
 		Tags:        metadata.Tags,
 		Metadata: &proto_gen.MetaData{
-			Created: timestamppb.New(artifact.CreatedAt),
-			Pulls:   artifact.PullsCount,
+			Created: timestamppb.New(time.Now().UTC()),
+			Pulls:   0,
 		},
 	})
 	if err != nil {
