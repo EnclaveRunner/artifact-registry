@@ -51,6 +51,14 @@ func (e *GenericError) Unwrap() error {
 	return e.Inner
 }
 
+type BadInputError struct {
+	Reason string
+}
+
+func (e *BadInputError) Error() string {
+	return "Bad input: " + e.Reason
+}
+
 // wrapErrorWithDetails creates a more specific error message
 func wrapErrorWithDetails(err error, operation, details string) error {
 	if err == nil {
