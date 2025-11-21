@@ -3,7 +3,7 @@ module artifact-registry
 go 1.25.0
 
 require (
-	github.com/EnclaveRunner/shareddeps v0.8.1
+	github.com/EnclaveRunner/shareddeps v0.8.2
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/grpc v1.77.0

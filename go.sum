@@ -1,5 +1,5 @@
-github.com/EnclaveRunner/shareddeps v0.8.1 h1:8oNyzD6lJZhEMHZa4UtROUtwg0/pZ+aCs2PR4ICc9Fw=
-github.com/EnclaveRunner/shareddeps v0.8.1/go.mod h1:v2ForAItEcIf8qABRFG/5MFTJg+tCHkGebjkT4dlrD0=
+github.com/EnclaveRunner/shareddeps v0.8.2 h1:RkIC6kxxIa6AHeKg1UmdrXvX0+YxNxi/YSVbS0pR15w=
+github.com/EnclaveRunner/shareddeps v0.8.2/go.mod h1:4/UenE5ANc+svkQZ/ArmiCY2hV4pQjEDS5Jzd6/qRW8=
 github.com/bmatcuk/doublestar/v4 v4.6.1/go.mod h1:xBQ8jztBU6kakFMg+8WGxn0c6z1fTSPVIjEY1Wr7jzc=
 github.com/bmatcuk/doublestar/v4 v4.9.1 h1:X8jg9rRZmJd4yRy7ZeNDRnM+T3ZfHv15JiBJ/avrEXE=
 github.com/bmatcuk/doublestar/v4 v4.9.1/go.mod h1:xBQ8jztBU6kakFMg+8WGxn0c6z1fTSPVIjEY1Wr7jzc=
