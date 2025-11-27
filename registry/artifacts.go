@@ -54,7 +54,7 @@ func (s *Server) QueryArtifacts(
 		return nil, wrapServiceError(err, "querying artifacts")
 	}
 
-	// Convert []s.db.Artifact to []*proto_gen.Artifact
+	// Convert []orm.Artifact to []*proto_gen.Artifact
 	protoArtifacts := make([]*proto_gen.Artifact, 0, len(artifacts))
 	for _, a := range artifacts {
 		protoArtifacts = append(protoArtifacts, &proto_gen.Artifact{
