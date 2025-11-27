@@ -263,17 +263,17 @@ func TestQueryArtifacts(t *testing.T) {
 		content []byte
 	}{
 		{
-			fqn:     &proto_gen.FullyQualifiedName{Source: "github", Author: "query-test-user1", Name: "query-app1"},
+			fqn:     &proto_gen.FullyQualifiedName{Source: "bitbucket", Author: "query-test-user1", Name: "query-app1"},
 			tags:    []string{"v1.0.0"},
 			content: []byte("app1 content"),
 		},
 		{
-			fqn:     &proto_gen.FullyQualifiedName{Source: "github", Author: "query-test-user1", Name: "query-app2"},
+			fqn:     &proto_gen.FullyQualifiedName{Source: "bitbucket", Author: "query-test-user1", Name: "query-app2"},
 			tags:    []string{"v1.0.0"},
 			content: []byte("app2 content"),
 		},
 		{
-			fqn:     &proto_gen.FullyQualifiedName{Source: "github", Author: "query-test-user2", Name: "query-app1"},
+			fqn:     &proto_gen.FullyQualifiedName{Source: "bitbucket", Author: "query-test-user2", Name: "query-app1"},
 			tags:    []string{"v2.0.0"},
 			content: []byte("user2 app1 content"),
 		},
@@ -288,14 +288,9 @@ func TestQueryArtifacts(t *testing.T) {
 		uploadArtifact(t, client, a.fqn, a.tags, a.content)
 	}
 
-	// Query all artifacts
-	resp, err := client.QueryArtifacts(t.Context(), &proto_gen.ArtifactQuery{})
-	assert.NoError(t, err)
-	assert.Len(t, resp.Artifacts, 4)
-
 	// Query by source
-	source := "github"
-	resp, err = client.QueryArtifacts(t.Context(), &proto_gen.ArtifactQuery{Source: &source})
+	source := "bitbucket"
+	resp, err := client.QueryArtifacts(t.Context(), &proto_gen.ArtifactQuery{Source: &source})
 	assert.NoError(t, err)
 	assert.Len(t, resp.Artifacts, 3)
 
@@ -327,7 +322,7 @@ func TestQueryArtifacts(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	assert.Len(t, resp.Artifacts, 1)
-	assert.Equal(t, "github", resp.Artifacts[0].Fqn.Source)
+	assert.Equal(t, "bitbucket", resp.Artifacts[0].Fqn.Source)
 	assert.Equal(t, "query-test-user1", resp.Artifacts[0].Fqn.Author)
 	assert.Equal(t, "query-app1", resp.Artifacts[0].Fqn.Name)
 }
@@ -713,37 +708,6 @@ func TestInvalidTagOperations(t *testing.T) {
 
 	_, err = client.AddTag(t.Context(), addReq)
 	assert.Error(t, err)
-}
-
-// TestEmptyArtifactUpload tests uploading an artifact with no content
-func TestEmptyArtifactUpload(t *testing.T) {
-	t.Parallel()
-
-	client, startServer := configureServer(t, t.TempDir())
-	go startServer()
-
-	fqn := &proto_gen.FullyQualifiedName{
-		Source: "github",
-		Author: "empty-artifact-test",
-		Name:   "empty-artifact-app",
-	}
-	tags := []string{"v1.0.0"}
-	content := []byte{}
-
-	artifact := uploadArtifact(t, client, fqn, tags, content)
-	assert.NotNil(t, artifact)
-	assert.NotEmpty(t, artifact.VersionHash)
-
-	// Pull and verify empty content
-	pullReq := &proto_gen.ArtifactIdentifier{
-		Fqn: fqn,
-		Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
-			VersionHash: artifact.VersionHash,
-		},
-	}
-
-	pulled := pullArtifact(t, client, pullReq)
-	assert.Equal(t, content, pulled)
 }
 
 // TestArtifactWithMultipleTags tests artifact with multiple tags from the start

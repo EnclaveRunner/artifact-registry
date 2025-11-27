@@ -406,6 +406,13 @@ func (s *Server) DeleteArtifact(
 		return nil, wrapServiceError(err, "deleting artifact")
 	}
 
+	err = s.db.DeleteArtifactMeta(id.Fqn, artifactMeta.Hash)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to delete artifact metadata")
+
+		return nil, wrapServiceError(err, "deleting artifact metadata")
+	}
+
 	result := &proto_gen.Artifact{
 		Fqn: &proto_gen.FullyQualifiedName{
 			Source: artifactMeta.Source,
