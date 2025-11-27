@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -13,10 +12,21 @@ import (
 	"github.com/google/uuid"
 )
 
-// ErrArtifactNotFound is returned when an artifact is not found
-var (
-	ErrArtifactNotFound  = errors.New("artifact not found")
-	ErrSecurityViolation = errors.New("security violation detected")
+type IOError struct {
+	Operation string
+	Err       error
+}
+
+func (e *IOError) Error() string {
+	return "I/O error during " + e.Operation + ": " + e.Err.Error()
+}
+
+func (e *IOError) Unwrap() error {
+	return e.Err
+}
+
+var ErrIllegalPath = errors.New(
+	"provided FQN results in an illegal filepath that lays outside the upload directory",
 )
 
 // directory where artifacts are temporarily stored while they don't have a
@@ -33,7 +43,10 @@ type FilesystemRegistry struct {
 func New(baseDir string) (*FilesystemRegistry, error) {
 	//nolint:gosec,mnd // Directory permissions 0755 are intentional
 	if err := os.MkdirAll(baseDir, 0o755); err != nil {
-		return nil, fmt.Errorf("failed to create base directory: %w", err)
+		return nil, &IOError{
+			"creating base directory",
+			err,
+		}
 	}
 
 	return &FilesystemRegistry{baseDir: baseDir}, nil
@@ -47,7 +60,10 @@ func (r *FilesystemRegistry) StoreArtifact(
 ) (string, error) {
 	uuidVal, err := uuid.NewUUID()
 	if err != nil {
-		return "", fmt.Errorf("failed to generate UUID: %w", err)
+		return "", &IOError{
+			"generating temp file name",
+			err,
+		}
 	}
 	uniqueTempFileName := filepath.Join(uploadDir, uuidVal.String()+".tmp")
 
@@ -55,33 +71,48 @@ func (r *FilesystemRegistry) StoreArtifact(
 	// inclusion
 	absUploadDir, err := filepath.Abs(uploadDir)
 	if err != nil {
-		return "", fmt.Errorf("failed to get absolute upload directory: %w", err)
+		return "", &IOError{
+			"parsing upload directory path",
+			err,
+		}
 	}
 	absTempFileName, err := filepath.Abs(uniqueTempFileName)
 	if err != nil {
-		return "", fmt.Errorf("failed to get absolute temp file name: %w", err)
+		return "", &IOError{
+			"parsing temp file path",
+			err,
+		}
 	}
 	absUploadDirClean := filepath.Clean(absUploadDir) + string(os.PathSeparator)
 	absTempFileNameClean := filepath.Clean(absTempFileName)
 	if len(absTempFileNameClean) < len(absUploadDirClean) ||
 		absTempFileNameClean[:len(absUploadDirClean)] != absUploadDirClean {
-		return "", fmt.Errorf("%w: %s", ErrSecurityViolation, absTempFileName)
+		return "", &IOError{
+			"parsing destination path",
+			ErrIllegalPath,
+		}
 	}
 
 	// Ensure the uploads directory exists
 	//nolint:gosec,mnd // Directory permissions 0755 are intentional
 	if err := os.MkdirAll(absUploadDir, 0o755); err != nil {
-		return "", fmt.Errorf("failed to create upload directory: %w", err)
+		return "", &IOError{
+			"creating upload directory",
+			err,
+		}
 	}
 
 	// Create or open a file for writing
 	file, err := os.Create(absTempFileNameClean)
 	if err != nil {
-		return "", fmt.Errorf("error creating file: %w", err)
+		return "", &IOError{
+			"creating artifact temp file",
+			err,
+		}
 	}
 	defer func() {
 		if cerr := file.Close(); cerr != nil && err == nil {
-			err = fmt.Errorf("error closing file: %w", cerr)
+			err = cerr
 		}
 		if err != nil {
 			_ = os.Remove(absTempFileNameClean)
@@ -96,7 +127,10 @@ func (r *FilesystemRegistry) StoreArtifact(
 
 	// Copy from reader to both file and hash
 	if _, err := io.Copy(multiWriter, reader); err != nil {
-		return "", fmt.Errorf("error writing artifact: %w", err)
+		return "", &IOError{
+			"writing artifact content",
+			err,
+		}
 	}
 
 	// Generate version hash
@@ -109,10 +143,16 @@ func (r *FilesystemRegistry) StoreArtifact(
 
 	//nolint:gosec,mnd // Directory permissions 0755 are intentional
 	if err := os.MkdirAll(finalDir, 0o755); err != nil {
-		return "", fmt.Errorf("failed to create final directory: %w", err)
+		return "", &IOError{
+			"creating artifact directory",
+			err,
+		}
 	}
 	if err := os.Rename(absTempFileNameClean, finalPath); err != nil {
-		return "", fmt.Errorf("failed to rename temp file: %w", err)
+		return "", &IOError{
+			"renaming artifact file",
+			err,
+		}
 	}
 
 	return versionHash, nil
@@ -127,11 +167,10 @@ func (r *FilesystemRegistry) GetArtifact(
 	//nolint:gosec // G304: File path is constructed internally and validated
 	content, err := os.ReadFile(artifactPath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, ErrArtifactNotFound
+		return nil, &IOError{
+			"reading artifact",
+			err,
 		}
-
-		return nil, fmt.Errorf("failed to read artifact: %w", err)
 	}
 
 	return content, nil
@@ -145,7 +184,10 @@ func (r *FilesystemRegistry) DeleteArtifact(
 	// Remove the file
 	artifactPath := r.getArtifactPath(fqn, hash)
 	if err := os.Remove(artifactPath); err != nil {
-		return fmt.Errorf("failed to remove artifact: %w", err)
+		return &IOError{
+			"deleting artifact",
+			err,
+		}
 	}
 
 	return nil

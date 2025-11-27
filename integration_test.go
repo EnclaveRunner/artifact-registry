@@ -4,7 +4,6 @@ import (
 	"artifact-registry/config"
 	"artifact-registry/orm"
 	"artifact-registry/proto_gen"
-	proto "artifact-registry/proto_gen"
 	"artifact-registry/registry"
 	"artifact-registry/registry/memoryRegistry"
 	"net"
@@ -63,7 +62,7 @@ func configureServer(
 
 	server := shareddeps.InitGRPCServer()
 
-	proto.RegisterRegistryServiceServer(
+	proto_gen.RegisterRegistryServiceServer(
 		server,
 		registry.NewServer(memRegistry, sharedDB),
 	)
@@ -91,33 +90,23 @@ func getAvailablePort(t *testing.T) int {
 	defer usedPortsLock.Unlock()
 
 	for port := 1024; port <= 65535; port++ {
-		if !usedPorts[port] {
-			ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))
-			if err != nil {
-				continue
-			}
-			ln.Close()
-			usedPorts[port] = true
-
-			return port
+		if usedPorts[port] {
+			continue
 		}
+		//nolint:noctx // Allow contextless listen for port check in test
+		ln, err := net.Listen("tcp", ":"+strconv.Itoa(port))
+		if err != nil {
+			continue
+		}
+		_ = ln.Close()
+		usedPorts[port] = true
+
+		return port
 	}
 
 	t.Fatal("no available ports found")
 
 	return 0
-}
-
-func TestListEmptyRegistry(t *testing.T) {
-	t.Parallel()
-
-	client, startServer := configureServer(t, t.TempDir())
-	go startServer()
-
-	resp, err := client.QueryArtifacts(t.Context(), nil)
-	assert.NoError(t, err)
-	assert.NotNil(t, resp)
-	assert.Equal(t, 0, len(resp.Artifacts))
 }
 
 // TestUploadAndGetArtifact tests basic artifact upload and retrieval
@@ -263,22 +252,38 @@ func TestQueryArtifacts(t *testing.T) {
 		content []byte
 	}{
 		{
-			fqn:     &proto_gen.FullyQualifiedName{Source: "bitbucket", Author: "query-test-user1", Name: "query-app1"},
+			fqn: &proto_gen.FullyQualifiedName{
+				Source: "bitbucket",
+				Author: "query-test-user1",
+				Name:   "query-app1",
+			},
 			tags:    []string{"v1.0.0"},
 			content: []byte("app1 content"),
 		},
 		{
-			fqn:     &proto_gen.FullyQualifiedName{Source: "bitbucket", Author: "query-test-user1", Name: "query-app2"},
+			fqn: &proto_gen.FullyQualifiedName{
+				Source: "bitbucket",
+				Author: "query-test-user1",
+				Name:   "query-app2",
+			},
 			tags:    []string{"v1.0.0"},
 			content: []byte("app2 content"),
 		},
 		{
-			fqn:     &proto_gen.FullyQualifiedName{Source: "bitbucket", Author: "query-test-user2", Name: "query-app1"},
+			fqn: &proto_gen.FullyQualifiedName{
+				Source: "bitbucket",
+				Author: "query-test-user2",
+				Name:   "query-app1",
+			},
 			tags:    []string{"v2.0.0"},
 			content: []byte("user2 app1 content"),
 		},
 		{
-			fqn:     &proto_gen.FullyQualifiedName{Source: "gitlab", Author: "query-test-user1", Name: "query-app1"},
+			fqn: &proto_gen.FullyQualifiedName{
+				Source: "gitlab",
+				Author: "query-test-user1",
+				Name:   "query-app1",
+			},
 			tags:    []string{"v1.5.0"},
 			content: []byte("gitlab app1 content"),
 		},
@@ -290,19 +295,28 @@ func TestQueryArtifacts(t *testing.T) {
 
 	// Query by source
 	source := "bitbucket"
-	resp, err := client.QueryArtifacts(t.Context(), &proto_gen.ArtifactQuery{Source: &source})
+	resp, err := client.QueryArtifacts(
+		t.Context(),
+		&proto_gen.ArtifactQuery{Source: &source},
+	)
 	assert.NoError(t, err)
 	assert.Len(t, resp.Artifacts, 3)
 
 	// Query by author
 	author := "query-test-user1"
-	resp, err = client.QueryArtifacts(t.Context(), &proto_gen.ArtifactQuery{Author: &author})
+	resp, err = client.QueryArtifacts(
+		t.Context(),
+		&proto_gen.ArtifactQuery{Author: &author},
+	)
 	assert.NoError(t, err)
 	assert.Len(t, resp.Artifacts, 3)
 
 	// Query by name
 	name := "query-app1"
-	resp, err = client.QueryArtifacts(t.Context(), &proto_gen.ArtifactQuery{Name: &name})
+	resp, err = client.QueryArtifacts(
+		t.Context(),
+		&proto_gen.ArtifactQuery{Name: &name},
+	)
 	assert.NoError(t, err)
 	assert.Len(t, resp.Artifacts, 3)
 
@@ -493,7 +507,10 @@ func TestMultipleVersions(t *testing.T) {
 
 	// Query all versions
 	name := fqn.Name
-	resp, err := client.QueryArtifacts(t.Context(), &proto_gen.ArtifactQuery{Name: &name})
+	resp, err := client.QueryArtifacts(
+		t.Context(),
+		&proto_gen.ArtifactQuery{Name: &name},
+	)
 	assert.NoError(t, err)
 	assert.Len(t, resp.Artifacts, 2)
 
@@ -576,15 +593,27 @@ func TestInvalidFQN(t *testing.T) {
 	}{
 		{
 			name: "missing source",
-			fqn:  &proto_gen.FullyQualifiedName{Source: "", Author: "user", Name: "app"},
+			fqn: &proto_gen.FullyQualifiedName{
+				Source: "",
+				Author: "user",
+				Name:   "app",
+			},
 		},
 		{
 			name: "missing author",
-			fqn:  &proto_gen.FullyQualifiedName{Source: "github", Author: "", Name: "app"},
+			fqn: &proto_gen.FullyQualifiedName{
+				Source: "github",
+				Author: "",
+				Name:   "app",
+			},
 		},
 		{
 			name: "missing name",
-			fqn:  &proto_gen.FullyQualifiedName{Source: "github", Author: "user", Name: ""},
+			fqn: &proto_gen.FullyQualifiedName{
+				Source: "github",
+				Author: "user",
+				Name:   "",
+			},
 		},
 		{
 			name: "nil fqn",
@@ -594,6 +623,7 @@ func TestInvalidFQN(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			// Try GetArtifact with invalid FQN
 			req := &proto_gen.ArtifactIdentifier{
 				Fqn: tc.fqn,

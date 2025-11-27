@@ -20,6 +20,7 @@ func TestFilesystemRegistry(t *testing.T) {
 
 		// Setup
 		tmpDir, registry := setupTest(t)
+		//nolint:errcheck // defer in test
 		defer os.RemoveAll(tmpDir)
 
 		fqn := &proto_gen.FullyQualifiedName{
@@ -64,6 +65,7 @@ func TestFilesystemRegistry(t *testing.T) {
 
 		// Setup
 		tmpDir, registry := setupTest(t)
+		//nolint:errcheck // defer in test
 		defer os.RemoveAll(tmpDir)
 
 		fqn := &proto_gen.FullyQualifiedName{
@@ -110,6 +112,7 @@ func TestFilesystemRegistry(t *testing.T) {
 
 		// Setup
 		tmpDir, registry := setupTest(t)
+		//nolint:errcheck // defer in test
 		defer os.RemoveAll(tmpDir)
 
 		fqn := &proto_gen.FullyQualifiedName{
@@ -131,6 +134,7 @@ func TestFilesystemRegistry(t *testing.T) {
 
 		// Setup
 		tmpDir, registry := setupTest(t)
+		//nolint:errcheck // defer in test
 		defer os.RemoveAll(tmpDir)
 
 		fqn := &proto_gen.FullyQualifiedName{
@@ -184,6 +188,7 @@ func TestFilesystemRegistry(t *testing.T) {
 
 		// Setup
 		tmpDir, registry := setupTest(t)
+		//nolint:errcheck // defer in test
 		defer os.RemoveAll(tmpDir)
 
 		fqn := &proto_gen.FullyQualifiedName{
@@ -239,6 +244,7 @@ func TestFilesystemRegistry(t *testing.T) {
 
 		// Setup
 		tmpDir, registry := setupTest(t)
+		//nolint:errcheck // defer in test
 		defer os.RemoveAll(tmpDir)
 
 		fqn := &proto_gen.FullyQualifiedName{
@@ -262,6 +268,7 @@ func TestFilesystemRegistry(t *testing.T) {
 
 		// Setup
 		tmpDir, registry := setupTest(t)
+		//nolint:errcheck // defer in test
 		defer os.RemoveAll(tmpDir)
 
 		// Store artifact with complex FQN
@@ -320,6 +327,7 @@ func setupTest(t *testing.T) (string, *FilesystemRegistry) {
 
 	registry, err := New(tmpDir)
 	if err != nil {
+		//nolint:errcheck,gosec // defer in test
 		os.RemoveAll(tmpDir)
 		t.Fatalf("Failed to create registry: %v", err)
 	}

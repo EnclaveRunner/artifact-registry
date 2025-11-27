@@ -10,7 +10,19 @@ import (
 	"sync"
 )
 
-// ErrArtifactNotFound is returned when an artifact is not found
+type IOError struct {
+	Operation string
+	Err       error
+}
+
+func (e *IOError) Error() string {
+	return "I/O error during " + e.Operation + ": " + e.Err.Error()
+}
+
+func (e *IOError) Unwrap() error {
+	return e.Err
+}
+
 var ErrArtifactNotFound = errors.New("artifact not found")
 
 // MemoryRegistry implements the registry interface using in-memory storage.
@@ -35,7 +47,10 @@ func (r *MemoryRegistry) StoreArtifact(
 	// Read all content from reader
 	content, err := io.ReadAll(reader)
 	if err != nil {
-		return "", fmt.Errorf("failed to read artifact content: %w", err)
+		return "", &IOError{
+			Operation: "reading artifact content",
+			Err:       err,
+		}
 	}
 
 	// Compute SHA256 hash
@@ -66,7 +81,10 @@ func (r *MemoryRegistry) GetArtifact(
 	r.mu.RUnlock()
 
 	if !exists {
-		return nil, ErrArtifactNotFound
+		return nil, &IOError{
+			Operation: "reading of artifact",
+			Err:       ErrArtifactNotFound,
+		}
 	}
 
 	// Return a copy to prevent external modifications
@@ -87,12 +105,30 @@ func (r *MemoryRegistry) DeleteArtifact(
 	defer r.mu.Unlock()
 
 	if _, exists := r.artifacts[key]; !exists {
-		return fmt.Errorf("failed to remove artifact: artifact not found")
+		return &IOError{
+			Operation: "deletion of artifact",
+			Err:       ErrArtifactNotFound,
+		}
 	}
 
 	delete(r.artifacts, key)
 
 	return nil
+}
+
+// Clear removes all artifacts from memory (useful for testing)
+func (r *MemoryRegistry) Clear() {
+	r.mu.Lock()
+	r.artifacts = make(map[string][]byte)
+	r.mu.Unlock()
+}
+
+// Count returns the number of artifacts stored (useful for testing)
+func (r *MemoryRegistry) Count() int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	return len(r.artifacts)
 }
 
 // getArtifactKey returns the storage key for an artifact
@@ -107,18 +143,4 @@ func (r *MemoryRegistry) getArtifactKey(
 		fqn.Name,
 		versionHash,
 	)
-}
-
-// Clear removes all artifacts from memory (useful for testing)
-func (r *MemoryRegistry) Clear() {
-	r.mu.Lock()
-	r.artifacts = make(map[string][]byte)
-	r.mu.Unlock()
-}
-
-// Count returns the number of artifacts stored (useful for testing)
-func (r *MemoryRegistry) Count() int {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return len(r.artifacts)
 }
