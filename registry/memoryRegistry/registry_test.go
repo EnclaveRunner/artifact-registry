@@ -269,7 +269,7 @@ func TestMemoryRegistry(t *testing.T) {
 
 		// Store multiple artifacts
 		for i := range 5 {
-			content := []byte("test content " + string(rune(i)))
+			content := []byte("test content " + strconv.Itoa(i))
 			_, err := registry.StoreArtifact(fqn, bytes.NewReader(content))
 			if err != nil {
 				t.Fatalf("Failed to store artifact %d: %v", i, err)
