@@ -3,6 +3,7 @@ package memoryRegistry
 import (
 	"artifact-registry/proto_gen"
 	"bytes"
+	"strconv"
 	"sync"
 	"testing"
 )
@@ -350,7 +351,7 @@ func TestMemoryRegistry(t *testing.T) {
 		for i := range numOps {
 			go func(idx int) {
 				defer wg.Done()
-				content := []byte("concurrent content " + string(rune(idx)))
+				content := []byte("concurrent content " + strconv.Itoa(idx))
 				hash, err := registry.StoreArtifact(fqn, bytes.NewReader(content))
 				if err != nil {
 					t.Errorf("Failed to store artifact %d: %v", idx, err)
