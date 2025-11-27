@@ -1,9 +1,7 @@
-//nolint:paralleltest // Currently not supported (should do so in the future)
 package filesystemRegistry
 
 import (
 	"artifact-registry/config"
-	"artifact-registry/orm"
 	"artifact-registry/proto_gen"
 	"bytes"
 	"os"
@@ -14,36 +12,23 @@ import (
 )
 
 func TestFilesystemRegistry(t *testing.T) {
-	// Create temporary directory for testing
-	_ = sharedepsConfig.LoadAppConfig(
-		config.Cfg,
-		"artifact-registry",
-		"TESTING",
-		config.Defaults...)
-	orm.InitDB()
-	tmpDir, err := os.MkdirTemp("", "registry-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { _ = os.RemoveAll(tmpDir) }()
-
-	// Create registry
-	registry, err := New(tmpDir)
-	if err != nil {
-		t.Fatalf("Failed to create registry: %v", err)
-	}
-
-	// Test artifact FQN
-	fqn := &proto_gen.FullyQualifiedName{
-		Source: "github.com",
-		Author: "testuser",
-		Name:   "testapp",
-	}
-	content := []byte("test content for artifact")
-	var storedVersionHash string
+	t.Parallel()
 
 	// Test StoreArtifact - should compute hash and store file
 	t.Run("StoreArtifact", func(t *testing.T) {
+		t.Parallel()
+
+		// Setup
+		tmpDir, registry := setupTest(t)
+		defer os.RemoveAll(tmpDir)
+
+		fqn := &proto_gen.FullyQualifiedName{
+			Source: "github.com",
+			Author: "testuser",
+			Name:   "testapp",
+		}
+		content := []byte("test content for artifact")
+
 		versionHash, err := registry.StoreArtifact(fqn, bytes.NewReader(content))
 		if err != nil {
 			t.Fatalf("Failed to store artifact: %v", err)
@@ -56,8 +41,6 @@ func TestFilesystemRegistry(t *testing.T) {
 		if len(versionHash) != 64 { // SHA256 hex string should be 64 characters
 			t.Errorf("Expected version hash length 64, got %d", len(versionHash))
 		}
-
-		storedVersionHash = versionHash
 
 		// Verify that the artifact file was actually created on disk
 		expectedPath := filepath.Join(
@@ -77,6 +60,28 @@ func TestFilesystemRegistry(t *testing.T) {
 
 	// Test GetArtifact by version hash - should retrieve the exact same content
 	t.Run("GetArtifactByHash", func(t *testing.T) {
+		t.Parallel()
+
+		// Setup
+		tmpDir, registry := setupTest(t)
+		defer os.RemoveAll(tmpDir)
+
+		fqn := &proto_gen.FullyQualifiedName{
+			Source: "github.com",
+			Author: "testuser",
+			Name:   "testapp",
+		}
+		content := []byte("test content for artifact")
+
+		// Store artifact first
+		storedVersionHash, err := registry.StoreArtifact(
+			fqn,
+			bytes.NewReader(content),
+		)
+		if err != nil {
+			t.Fatalf("Failed to store artifact: %v", err)
+		}
+
 		retrieved, err := registry.GetArtifact(fqn, storedVersionHash)
 		if err != nil {
 			t.Fatalf("Failed to get artifact: %v", err)
@@ -101,6 +106,18 @@ func TestFilesystemRegistry(t *testing.T) {
 
 	// Test GetArtifact with non-existent hash - should return error
 	t.Run("GetNonExistentArtifact", func(t *testing.T) {
+		t.Parallel()
+
+		// Setup
+		tmpDir, registry := setupTest(t)
+		defer os.RemoveAll(tmpDir)
+
+		fqn := &proto_gen.FullyQualifiedName{
+			Source: "github.com",
+			Author: "testuser",
+			Name:   "testapp",
+		}
+
 		nonExistentHash := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 		_, err := registry.GetArtifact(fqn, nonExistentHash)
 		if err == nil {
@@ -110,7 +127,29 @@ func TestFilesystemRegistry(t *testing.T) {
 
 	// Test StoreArtifact with different content - should generate different hash
 	t.Run("StoreArtifactDifferentContent", func(t *testing.T) {
+		t.Parallel()
+
+		// Setup
+		tmpDir, registry := setupTest(t)
+		defer os.RemoveAll(tmpDir)
+
+		fqn := &proto_gen.FullyQualifiedName{
+			Source: "github.com",
+			Author: "testuser",
+			Name:   "testapp",
+		}
+		content := []byte("test content for artifact")
 		differentContent := []byte("different test content")
+
+		// Store first artifact
+		storedVersionHash, err := registry.StoreArtifact(
+			fqn,
+			bytes.NewReader(content),
+		)
+		if err != nil {
+			t.Fatalf("Failed to store first artifact: %v", err)
+		}
+
 		versionHash2, err := registry.StoreArtifact(
 			fqn,
 			bytes.NewReader(differentContent),
@@ -141,8 +180,30 @@ func TestFilesystemRegistry(t *testing.T) {
 
 	// Test DeleteArtifact - should remove file and make it unavailable
 	t.Run("DeleteArtifact", func(t *testing.T) {
+		t.Parallel()
+
+		// Setup
+		tmpDir, registry := setupTest(t)
+		defer os.RemoveAll(tmpDir)
+
+		fqn := &proto_gen.FullyQualifiedName{
+			Source: "github.com",
+			Author: "testuser",
+			Name:   "testapp",
+		}
+		content := []byte("test content for artifact")
+
+		// Store artifact first
+		storedVersionHash, err := registry.StoreArtifact(
+			fqn,
+			bytes.NewReader(content),
+		)
+		if err != nil {
+			t.Fatalf("Failed to store artifact: %v", err)
+		}
+
 		// Verify artifact exists before deletion
-		_, err := registry.GetArtifact(fqn, storedVersionHash)
+		_, err = registry.GetArtifact(fqn, storedVersionHash)
 		if err != nil {
 			t.Fatalf("Artifact should exist before deletion: %v", err)
 		}
@@ -174,6 +235,18 @@ func TestFilesystemRegistry(t *testing.T) {
 
 	// Test DeleteArtifact with non-existent hash - should return error
 	t.Run("DeleteNonExistentArtifact", func(t *testing.T) {
+		t.Parallel()
+
+		// Setup
+		tmpDir, registry := setupTest(t)
+		defer os.RemoveAll(tmpDir)
+
+		fqn := &proto_gen.FullyQualifiedName{
+			Source: "github.com",
+			Author: "testuser",
+			Name:   "testapp",
+		}
+
 		nonExistentHash := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 		err := registry.DeleteArtifact(fqn, nonExistentHash)
 		if err == nil {
@@ -185,6 +258,12 @@ func TestFilesystemRegistry(t *testing.T) {
 
 	// Test directory structure creation
 	t.Run("DirectoryStructure", func(t *testing.T) {
+		t.Parallel()
+
+		// Setup
+		tmpDir, registry := setupTest(t)
+		defer os.RemoveAll(tmpDir)
+
 		// Store artifact with complex FQN
 		complexFqn := &proto_gen.FullyQualifiedName{
 			Source: "complex.domain.com",
@@ -221,4 +300,29 @@ func TestFilesystemRegistry(t *testing.T) {
 		// Clean up
 		_ = registry.DeleteArtifact(complexFqn, versionHash)
 	})
+}
+
+// setupTest creates a temporary directory and registry for testing
+func setupTest(t *testing.T) (string, *FilesystemRegistry) {
+	t.Helper()
+
+	cfg := &config.AppConfig{}
+	_ = sharedepsConfig.PopulateAppConfig(
+		cfg,
+		"artifact-registry",
+		"TESTING",
+		config.Defaults...)
+
+	tmpDir, err := os.MkdirTemp("", "registry-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+
+	registry, err := New(tmpDir)
+	if err != nil {
+		os.RemoveAll(tmpDir)
+		t.Fatalf("Failed to create registry: %v", err)
+	}
+
+	return tmpDir, registry
 }

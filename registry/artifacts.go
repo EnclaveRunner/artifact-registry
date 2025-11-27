@@ -47,14 +47,14 @@ func (s *Server) QueryArtifacts(
 		fqn.Name = *query.Name
 	}
 
-	artifacts, err := orm.GetArtifactMetasByFQN(ctx, fqn)
+	artifacts, err := s.db.GetArtifactMetasByFQN(ctx, fqn)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to query artifacts")
 
 		return nil, wrapServiceError(err, "querying artifacts")
 	}
 
-	// Convert []orm.Artifact to []*proto_gen.Artifact
+	// Convert []s.db.Artifact to []*proto_gen.Artifact
 	protoArtifacts := make([]*proto_gen.Artifact, 0, len(artifacts))
 	for _, a := range artifacts {
 		protoArtifacts = append(protoArtifacts, &proto_gen.Artifact{
@@ -132,14 +132,14 @@ func (s *Server) PullArtifact(
 
 	switch identifier := req.Identifier.(type) {
 	case *proto_gen.ArtifactIdentifier_VersionHash:
-		artifactMeta, err = orm.GetArtifactMetaByHash(serv.Context(), req.Fqn, identifier.VersionHash)
+		artifactMeta, err = s.db.GetArtifactMetaByHash(serv.Context(), req.Fqn, identifier.VersionHash)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to get artifact by version hash")
 
 			return wrapServiceError(err, "retrieving artifact by version hash")
 		}
 	case *proto_gen.ArtifactIdentifier_Tag:
-		artifactMeta, err = orm.GetArtifactMetaByTag(serv.Context(), req.Fqn, identifier.Tag)
+		artifactMeta, err = s.db.GetArtifactMetaByTag(serv.Context(), req.Fqn, identifier.Tag)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to get artifact by tag")
 
@@ -199,7 +199,7 @@ func (s *Server) PullArtifact(
 		Msg("Successfully streamed complete artifact")
 
 	// Increment pull count
-	if err := orm.IncreasePullCount(serv.Context(), req.Fqn, versionHash); err != nil {
+	if err := s.db.IncreasePullCount(serv.Context(), req.Fqn, versionHash); err != nil {
 		log.Warn().Err(err).Msg("Failed to increment pull count")
 	}
 
@@ -331,7 +331,7 @@ func (s *Server) UploadArtifact(
 		return wrapServiceError(err, "storing artifact")
 	}
 
-	err = orm.CreateArtifactMeta(
+	err = s.db.CreateArtifactMeta(
 		stream.Context(),
 		metadata.Fqn,
 		versionHash,
@@ -389,7 +389,7 @@ func (s *Server) DeleteArtifact(
 		return nil, newRegistryUnavailableError("artifact deletion")
 	}
 
-	artifactMeta, err := resolveIdentifier(ctx, id)
+	artifactMeta, err := s.resolveIdentifier(ctx, id)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to resolve identifier to hash")
 
@@ -444,7 +444,7 @@ func (s *Server) GetArtifact(
 		return nil, newRegistryUnavailableError("artifact retrieval")
 	}
 
-	artifactMeta, err := resolveIdentifier(ctx, id)
+	artifactMeta, err := s.resolveIdentifier(ctx, id)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to resolve identifier to hash")
 
@@ -488,7 +488,7 @@ func (s *Server) AddTag(
 		return nil, newRegistryUnavailableError("adding tag")
 	}
 
-	err = orm.AddTag(ctx, req.Fqn, req.VersionHash, req.Tag)
+	err = s.db.AddTag(ctx, req.Fqn, req.VersionHash, req.Tag)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to add tag")
 
@@ -528,7 +528,7 @@ func (s *Server) RemoveTag(
 		return nil, newRegistryUnavailableError("removing tag")
 	}
 
-	err = orm.RemoveTag(ctx, req.Fqn, req.Tag)
+	err = s.db.RemoveTag(ctx, req.Fqn, req.Tag)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to remove tag")
 
@@ -546,7 +546,7 @@ func (s *Server) RemoveTag(
 	return s.GetArtifact(ctx, id)
 }
 
-func resolveIdentifier(
+func (s *Server) resolveIdentifier(
 	ctx context.Context,
 	id *proto_gen.ArtifactIdentifier,
 ) (*orm.Artifact, error) {
@@ -560,14 +560,14 @@ func resolveIdentifier(
 	var artifactMeta *orm.Artifact
 	switch identifier := id.Identifier.(type) {
 	case *proto_gen.ArtifactIdentifier_VersionHash:
-		artifactMeta, err = orm.GetArtifactMetaByHash(ctx, id.Fqn, identifier.VersionHash)
+		artifactMeta, err = s.db.GetArtifactMetaByHash(ctx, id.Fqn, identifier.VersionHash)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to resolve artifact by version hash")
 
 			return nil, wrapServiceError(err, "resolving artifact by version hash")
 		}
 	case *proto_gen.ArtifactIdentifier_Tag:
-		artifactMeta, err = orm.GetArtifactMetaByTag(ctx, id.Fqn, identifier.Tag)
+		artifactMeta, err = s.db.GetArtifactMetaByTag(ctx, id.Fqn, identifier.Tag)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to resolve artifact by version tag")
 

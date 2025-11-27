@@ -21,7 +21,7 @@ type AppConfig struct {
 
 //nolint:mnd // Default port for gRPC service
 var Defaults = []enclaveConfig.DefaultValue{
-	{Key: "port", Value: 9876},
+	{Key: "port", Value: 5000},
 	{Key: "log_level", Value: "info"},
 	{Key: "human_readable_output", Value: "true"},
 	{Key: "storage_dir", Value: "/data"},
@@ -33,5 +33,3 @@ var Defaults = []enclaveConfig.DefaultValue{
 	{Key: "database.password", Value: "enclave_password"},
 	{Key: "database.database", Value: "enclave_db"},
 }
-
-var Cfg = &AppConfig{}

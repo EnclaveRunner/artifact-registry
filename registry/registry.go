@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"artifact-registry/orm"
 	"artifact-registry/proto_gen"
 	"io"
 )
@@ -22,11 +23,13 @@ type Server struct {
 	proto_gen.UnimplementedRegistryServiceServer
 
 	registry Registry
+	db       orm.DB
 }
 
 // NewServer creates a new server with the specified registry implementation
-func NewServer(reg Registry) *Server {
+func NewServer(reg Registry, db orm.DB) *Server {
 	return &Server{
 		registry: reg,
+		db:       db,
 	}
 }

@@ -13,25 +13,27 @@ import (
 	"gorm.io/gorm"
 )
 
-var DB *gorm.DB
+type DB struct {
+	dbGorm *gorm.DB
+}
 
-func InitDB() {
+func InitDB(cfg *config.AppConfig) DB {
 	dsn := fmt.Sprintf(
 		"host='%s' port='%d' user='%s' password='%s' dbname='%s' sslmode='%s'",
-		config.Cfg.Database.Host,
-		config.Cfg.Database.Port,
-		config.Cfg.Database.Username,
-		config.Cfg.Database.Password,
-		config.Cfg.Database.Database,
-		config.Cfg.Database.SSLMode,
+		cfg.Database.Host,
+		cfg.Database.Port,
+		cfg.Database.Username,
+		cfg.Database.Password,
+		cfg.Database.Database,
+		cfg.Database.SSLMode,
 	)
 
-	dsn_redacted := strings.ReplaceAll(dsn, config.Cfg.Database.Password, "*****")
+	dsn_redacted := strings.ReplaceAll(dsn, cfg.Database.Password, "*****")
 	log.Debug().
 		Msgf("Connecting to postgres using the following information: %s", dsn_redacted)
 
 	var err error
-	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
+	dbGorm, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger:         logger.Default.LogMode(logger.Silent),
 		TranslateError: true,
 	})
@@ -42,8 +44,18 @@ func InitDB() {
 	log.Debug().Msg("Successfully connected to the database")
 
 	// Run database migrations
-	err = DB.AutoMigrate(&Artifact{}, &Tag{})
+	err = dbGorm.AutoMigrate(&Artifact{}, &Tag{})
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to migrate database")
 	}
+
+	return DB{dbGorm: dbGorm}
+}
+
+// UseTransaction returns a new DB instance that uses the provided gorm.DB
+// transaction.
+func (db *DB) UseTransaction(tx *gorm.DB) DB {
+	// By only allowing transactions to be set via this method,
+	// it is ensured that the function is called with an initialized db instance.
+	return DB{dbGorm: tx}
 }

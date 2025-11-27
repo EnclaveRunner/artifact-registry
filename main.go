@@ -12,13 +12,16 @@ import (
 )
 
 func main() {
-	// initialize gRPC server
-	shareddeps.InitGRPCServer(
-		config.Cfg, "artifact-registry", "v0.3.3", config.Defaults...,
+	cfg := &config.AppConfig{}
+	shareddeps.PopulateAppConfig(
+		cfg, "artifact-registry", "v0.3.3", config.Defaults...,
 	)
-	orm.InitDB()
+
+	// initialize gRPC server
+	server := shareddeps.InitGRPCServer()
+	db := orm.InitDB(cfg)
 	// Initialize filesystem registry
-	storageDir := filesystemRegistry.GetStorageDir()
+	storageDir := filesystemRegistry.GetStorageDir(cfg)
 	fsRegistry, err := filesystemRegistry.New(storageDir)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize filesystem registry")
@@ -29,9 +32,9 @@ func main() {
 		Msg("Filesystem registry initialized")
 
 	proto.RegisterRegistryServiceServer(
-		shareddeps.GRPCServer,
-		registry.NewServer(fsRegistry),
+		server,
+		registry.NewServer(fsRegistry, db),
 	)
 
-	shareddeps.StartGRPCServer()
+	shareddeps.StartGRPCServer(cfg, server)
 }
