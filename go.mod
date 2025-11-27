@@ -18,7 +18,6 @@ require (
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/spf13/viper v1.21.0 // indirect
-	github.com/stretchr/objx v0.5.2 // indirect
 )
 
 require (
