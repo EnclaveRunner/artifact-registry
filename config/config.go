@@ -33,5 +33,3 @@ var Defaults = []enclaveConfig.DefaultValue{
 	{Key: "database.password", Value: "enclave_password"},
 	{Key: "database.database", Value: "enclave_db"},
 }
-
-var Cfg = &AppConfig{}

@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func GetArtifactMetaByHash(
+func (db *DB) GetArtifactMetaByHash(
 	ctx context.Context,
 	fqn *proto_gen.FullyQualifiedName,
 	hash string,
@@ -35,7 +35,7 @@ func GetArtifactMetaByHash(
 	var artifact Artifact
 
 	artifact, err := gorm.G[Artifact](
-		DB,
+		db.dbGorm,
 	).Preload("Tags", nil).Where(&Artifact{
 		Source: fqn.Source,
 		Author: fqn.Author,
@@ -59,7 +59,7 @@ func GetArtifactMetaByHash(
 	return &artifact, nil
 }
 
-func GetArtifactMetaByTag(
+func (db *DB) GetArtifactMetaByTag(
 	ctx context.Context,
 	fqn *proto_gen.FullyQualifiedName,
 	tag string,
@@ -82,7 +82,7 @@ func GetArtifactMetaByTag(
 		}
 	}
 
-	tagQuery, err := gorm.G[Tag](DB).Where(&Tag{
+	tagQuery, err := gorm.G[Tag](db.dbGorm).Where(&Tag{
 		Source:  fqn.Source,
 		Author:  fqn.Author,
 		Name:    fqn.Name,
@@ -102,15 +102,15 @@ func GetArtifactMetaByTag(
 		)
 	}
 
-	return GetArtifactMetaByHash(ctx, fqn, tagQuery.Hash)
+	return db.GetArtifactMetaByHash(ctx, fqn, tagQuery.Hash)
 }
 
-func IncreasePullCount(
+func (db *DB) IncreasePullCount(
 	ctx context.Context,
 	fqn *proto_gen.FullyQualifiedName,
 	hash string,
 ) error {
-	artifact, err := GetArtifactMetaByHash(ctx, fqn, hash)
+	artifact, err := db.GetArtifactMetaByHash(ctx, fqn, hash)
 	if err != nil {
 		return err
 	}
@@ -118,7 +118,7 @@ func IncreasePullCount(
 	artifact.PullsCount += 1
 
 	return wrapErrorWithDetails(
-		DB.Save(&artifact).Error,
+		db.dbGorm.Save(&artifact).Error,
 		"increase pull count - save artifact",
 		fmt.Sprintf(
 			"source=%s, author=%s, name=%s, hash=%s",
@@ -130,7 +130,7 @@ func IncreasePullCount(
 	)
 }
 
-func GetArtifactMetasByFQN(
+func (db *DB) GetArtifactMetasByFQN(
 	ctx context.Context,
 	fqn *proto_gen.FullyQualifiedName,
 ) ([]Artifact, error) {
@@ -141,7 +141,7 @@ func GetArtifactMetasByFQN(
 	}
 
 	artifacts, err := gorm.G[Artifact](
-		DB,
+		db.dbGorm,
 	).Preload("Tags", nil).Where(&Artifact{
 		Source: fqn.Source,
 		Author: fqn.Author,
@@ -163,7 +163,7 @@ func GetArtifactMetasByFQN(
 	return artifacts, nil
 }
 
-func CreateArtifactMeta(
+func (db *DB) CreateArtifactMeta(
 	ctx context.Context,
 	fqn *proto_gen.FullyQualifiedName,
 	versionHash string,
@@ -197,7 +197,8 @@ func CreateArtifactMeta(
 		tags,
 	)
 
-	err := DB.Transaction(func(tx *gorm.DB) error {
+	err := db.dbGorm.Transaction(func(tx *gorm.DB) error {
+		dbTx := db.UseTransaction(tx)
 		err := gorm.G[Artifact](tx).Create(ctx, &Artifact{
 			Source: fqn.Source,
 			Author: fqn.Author,
@@ -213,7 +214,7 @@ func CreateArtifactMeta(
 		}
 
 		for _, tag := range tags {
-			err := addTag(ctx, tx, fqn, versionHash, tag)
+			err := dbTx.addTag(ctx, fqn, versionHash, tag)
 			if err != nil {
 				return err
 			}
@@ -226,7 +227,7 @@ func CreateArtifactMeta(
 	return err
 }
 
-func DeleteArtifactMeta(
+func (db *DB) DeleteArtifactMeta(
 	fqn *proto_gen.FullyQualifiedName,
 	versionHash string,
 ) error {
@@ -250,7 +251,7 @@ func DeleteArtifactMeta(
 	}
 
 	return wrapErrorWithDetails(
-		DB.Delete(
+		db.dbGorm.Delete(
 			&Artifact{
 				Source: fqn.Source,
 				Author: fqn.Author,
@@ -269,7 +270,7 @@ func DeleteArtifactMeta(
 	)
 }
 
-func AddTag(
+func (db *DB) AddTag(
 	ctx context.Context,
 	fqn *proto_gen.FullyQualifiedName,
 	versionHash, tag string,
@@ -304,7 +305,7 @@ func AddTag(
 	)
 
 	// Check that artifact exists
-	count, err := gorm.G[Artifact](DB).Where(Artifact{
+	count, err := gorm.G[Artifact](db.dbGorm).Where(Artifact{
 		Source: fqn.Source,
 		Author: fqn.Author,
 		Name:   fqn.Name,
@@ -330,12 +331,11 @@ func AddTag(
 		}
 	}
 
-	return addTag(ctx, DB, fqn, versionHash, tag)
+	return db.addTag(ctx, fqn, versionHash, tag)
 }
 
-func addTag(
+func (db *DB) addTag(
 	ctx context.Context,
-	tx *gorm.DB,
 	fqn *proto_gen.FullyQualifiedName,
 	versionHash, tag string,
 ) error {
@@ -356,7 +356,7 @@ func addTag(
 	)
 
 	// Delete existing tag if it exists
-	_, err := gorm.G[Tag](tx).Where(&tagObject).Delete(ctx)
+	_, err := gorm.G[Tag](db.dbGorm).Where(&tagObject).Delete(ctx)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return wrapErrorWithDetails(
 			err,
@@ -367,7 +367,7 @@ func addTag(
 
 	tagObject.Hash = versionHash
 
-	err = gorm.G[Tag](tx).Create(ctx, &tagObject)
+	err = gorm.G[Tag](db.dbGorm).Create(ctx, &tagObject)
 	if err != nil {
 		return wrapErrorWithDetails(
 			err,
@@ -379,7 +379,7 @@ func addTag(
 	return nil
 }
 
-func RemoveTag(
+func (db *DB) RemoveTag(
 	ctx context.Context,
 	fqn *proto_gen.FullyQualifiedName,
 	tag string,
@@ -403,7 +403,7 @@ func RemoveTag(
 	}
 
 	return wrapErrorWithDetails(
-		DB.Delete(Tag{
+		db.dbGorm.Delete(Tag{
 			Source:  fqn.Source,
 			Author:  fqn.Author,
 			Name:    fqn.Name,

@@ -8,12 +8,12 @@ import (
 
 // GetStorageDir returns the storage directory based on config, ensuring it's
 // absolute
-func GetStorageDir() string {
-	if config.Cfg.StorageDir == "" || config.Cfg.StorageDir[0] == '/' {
-		wd, _ := os.Getwd()
-
-		return filepath.Join(wd, config.Cfg.StorageDir)
+func GetStorageDir(cfg *config.AppConfig) string {
+	if cfg.StorageDir != "" && cfg.StorageDir[0] == '/' {
+		return cfg.StorageDir
 	}
 
-	return config.Cfg.StorageDir
+	wd, _ := os.Getwd()
+
+	return filepath.Join(wd, cfg.StorageDir)
 }
