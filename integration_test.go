@@ -393,6 +393,86 @@ func TestAddAndRemoveTags(t *testing.T) {
 	assert.Len(t, updated.Tags, 2)
 }
 
+func TestDeleteTagFromNonExistentArtifact(t *testing.T) {
+	t.Parallel()
+
+	client, startServer := configureServer(t, t.TempDir())
+	go startServer()
+
+	// Create an artifact
+	fqn := &proto_gen.FullyQualifiedName{
+		Source: "github",
+		Author: "nonexistent-tag-test",
+		Name:   "nonexistent-tag-app",
+	}
+	tags := []string{"v1.0.0"}
+	content := []byte("test content")
+
+	artifact := uploadArtifact(t, client, fqn, tags, content)
+
+	// Delete tag
+	removeReq := &proto_gen.AddRemoveTagRequest{
+		Fqn:         fqn,
+		VersionHash: "non existent hash",
+		Tag:         "v1.0.0",
+	}
+
+	_, err := client.RemoveTag(t.Context(), removeReq)
+	assert.Error(t, err)
+
+	// Verify original artifact is unaffected
+	getReq := &proto_gen.ArtifactIdentifier{
+		Fqn: fqn,
+		Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
+			VersionHash: artifact.VersionHash,
+		},
+	}
+	retrieved, err := client.GetArtifact(t.Context(), getReq)
+	assert.NoError(t, err)
+	assert.NotNil(t, retrieved)
+	assert.Contains(t, retrieved.Tags, "v1.0.0")
+
+	// Remove artifact
+	_, err = client.DeleteArtifact(t.Context(), getReq)
+	assert.NoError(t, err)
+}
+
+func TestDeleteTagThatDoesNotExist(t *testing.T) {
+	t.Parallel()
+	// Create an artifact
+	client, startServer := configureServer(t, t.TempDir())
+	go startServer()
+	fqn := &proto_gen.FullyQualifiedName{
+		Source: "github",
+		Author: "nonexistent-tag-test",
+		Name:   "nonexistent-tag-app2",
+	}
+
+	content := []byte("test content")
+	artifact := uploadArtifact(t, client, fqn, nil, content)
+
+	// Delete tag that does not exist
+	removeReq := &proto_gen.AddRemoveTagRequest{
+		Fqn:         fqn,
+		VersionHash: artifact.VersionHash,
+		Tag:         "nonexistent-tag",
+	}
+
+	_, err := client.RemoveTag(t.Context(), removeReq)
+	assert.Error(t, err)
+
+	// Delete artifact
+	getReq := &proto_gen.ArtifactIdentifier{
+		Fqn: fqn,
+		Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
+			VersionHash: artifact.VersionHash,
+		},
+	}
+
+	_, err = client.DeleteArtifact(t.Context(), getReq)
+	assert.NoError(t, err)
+}
+
 // TestDeleteArtifact tests artifact deletion
 func TestDeleteArtifact(t *testing.T) {
 	t.Parallel()
