@@ -572,14 +572,15 @@ func (s *Server) RemoveTag(
 		}
 	}
 
-	artifact.Tags = updatedTags
-
 	err = s.db.RemoveTag(ctx, req.Fqn, req.Tag)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to remove tag")
 
 		return nil, wrapServiceError(err, "removing tag from artifact")
 	}
+
+	// Remove tag from artifact response
+	artifact.Tags = updatedTags
 
 	return artifact, nil
 }
