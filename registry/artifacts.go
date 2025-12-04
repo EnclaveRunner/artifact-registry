@@ -529,10 +529,47 @@ func (s *Server) RemoveTag(
 		Str("author", req.Fqn.Author).
 		Str("name", req.Fqn.Name).
 		Str("tag", req.Tag).
+		Str("hash", req.VersionHash).
 		Msg("RemoveTag called")
 
 	if s.registry == nil {
 		return nil, newRegistryUnavailableError("removing tag")
+	}
+
+	// Query the artifact to ensure it exists
+	id := &proto_gen.ArtifactIdentifier{
+		Fqn: req.Fqn,
+		Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
+			VersionHash: req.VersionHash,
+		},
+	}
+
+	artifact, err := s.GetArtifact(ctx, id)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to get artifact for tag removal")
+
+		return nil, err
+	}
+
+	// Check if the tag exists on the artifact and remove from list if found
+	// as this will be needed later
+	tagExists := false
+	updatedTags := make([]string, 0, len(artifact.Tags))
+	for _, t := range artifact.Tags {
+		if t == req.Tag {
+			tagExists = true
+		} else {
+			updatedTags = append(updatedTags, t)
+		}
+	}
+	if !tagExists {
+		log.Error().Msg("Tag to remove does not exist on artifact")
+
+		return nil, &ServiceError{
+			Code:    codes.NotFound,
+			Message: "Tag does not exist on artifact",
+			Inner:   nil,
+		}
 	}
 
 	err = s.db.RemoveTag(ctx, req.Fqn, req.Tag)
@@ -542,15 +579,10 @@ func (s *Server) RemoveTag(
 		return nil, wrapServiceError(err, "removing tag from artifact")
 	}
 
-	// Return the artifact
-	id := &proto_gen.ArtifactIdentifier{
-		Fqn: req.Fqn,
-		Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
-			VersionHash: req.VersionHash,
-		},
-	}
+	// Remove tag from artifact response
+	artifact.Tags = updatedTags
 
-	return s.GetArtifact(ctx, id)
+	return artifact, nil
 }
 
 func (s *Server) resolveIdentifier(
