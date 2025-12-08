@@ -92,8 +92,8 @@ jobs:
           path: target-repo
           commit-message: "chore: update Artifact Registry proto specification"
           branch: update-registry-proto-spec
-          committer: "Enclave Bot <enclave-automation@marvin-fuchs.de>"
-          author: "Enclave Bot <enclave-automation@marvin-fuchs.de>"
+          committer: "Enclave Bot <automation@enclave-runner.de>"
+          author: "Enclave Bot <automation@enclave-runner.de>"
           title: "chore: Update Artifact Registry proto specification"
           body: |
             # Auto-Sync of Proto Specification 📋
