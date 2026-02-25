@@ -18,7 +18,7 @@ func TestMemoryRegistry(t *testing.T) {
 		registry := New()
 		fqn := &proto_gen.PackageName{
 			Namespace: "testuser",
-			Name:   "testapp",
+			Name:      "testapp",
 		}
 		content := []byte("test content for artifact")
 
@@ -48,7 +48,7 @@ func TestMemoryRegistry(t *testing.T) {
 		registry := New()
 		fqn := &proto_gen.PackageName{
 			Namespace: "testuser",
-			Name:   "testapp",
+			Name:      "testapp",
 		}
 		content := []byte("test content for artifact")
 
@@ -90,7 +90,7 @@ func TestMemoryRegistry(t *testing.T) {
 		registry := New()
 		fqn := &proto_gen.PackageName{
 			Namespace: "testuser",
-			Name:   "testapp",
+			Name:      "testapp",
 		}
 
 		nonExistentHash := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -107,7 +107,7 @@ func TestMemoryRegistry(t *testing.T) {
 		registry := New()
 		fqn := &proto_gen.PackageName{
 			Namespace: "testuser",
-			Name:   "testapp",
+			Name:      "testapp",
 		}
 		content := []byte("test content for artifact")
 		differentContent := []byte("different test content")
@@ -161,7 +161,7 @@ func TestMemoryRegistry(t *testing.T) {
 		registry := New()
 		fqn := &proto_gen.PackageName{
 			Namespace: "testuser",
-			Name:   "testapp",
+			Name:      "testapp",
 		}
 		content := []byte("test content for artifact")
 
@@ -205,7 +205,7 @@ func TestMemoryRegistry(t *testing.T) {
 		registry := New()
 		fqn := &proto_gen.PackageName{
 			Namespace: "testuser",
-			Name:   "testapp",
+			Name:      "testapp",
 		}
 
 		nonExistentHash := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -226,7 +226,7 @@ func TestMemoryRegistry(t *testing.T) {
 		// Store artifact with complex FQN
 		complexFqn := &proto_gen.PackageName{
 			Namespace: "complex-author",
-			Name:   "complex-name-with-dashes",
+			Name:      "complex-name-with-dashes",
 		}
 
 		complexContent := []byte("content for complex artifact")
@@ -256,7 +256,7 @@ func TestMemoryRegistry(t *testing.T) {
 		registry := New()
 		fqn := &proto_gen.PackageName{
 			Namespace: "testuser",
-			Name:   "testapp",
+			Name:      "testapp",
 		}
 
 		// Store multiple artifacts
@@ -289,7 +289,7 @@ func TestMemoryRegistry(t *testing.T) {
 		registry := New()
 		fqn := &proto_gen.PackageName{
 			Namespace: "testuser",
-			Name:   "testapp",
+			Name:      "testapp",
 		}
 		content := []byte("test content for artifact")
 
@@ -327,7 +327,7 @@ func TestMemoryRegistry(t *testing.T) {
 		registry := New()
 		fqn := &proto_gen.PackageName{
 			Namespace: "testuser",
-			Name:   "testapp",
+			Name:      "testapp",
 		}
 
 		// Number of concurrent operations
@@ -398,7 +398,7 @@ func TestMemoryRegistry(t *testing.T) {
 		registry := New()
 		fqn := &proto_gen.PackageName{
 			Namespace: "testuser",
-			Name:   "testapp",
+			Name:      "testapp",
 		}
 		content := []byte{}
 
@@ -431,7 +431,7 @@ func TestMemoryRegistry(t *testing.T) {
 		registry := New()
 		fqn := &proto_gen.PackageName{
 			Namespace: "testuser",
-			Name:   "testapp",
+			Name:      "testapp",
 		}
 		content := []byte("identical content")
 
@@ -478,12 +478,12 @@ func TestMemoryRegistry(t *testing.T) {
 
 		fqn1 := &proto_gen.PackageName{
 			Namespace: "author1",
-			Name:   "app1",
+			Name:      "app1",
 		}
 
 		fqn2 := &proto_gen.PackageName{
 			Namespace: "author2",
-			Name:   "app2",
+			Name:      "app2",
 		}
 
 		content := []byte("same content for both")

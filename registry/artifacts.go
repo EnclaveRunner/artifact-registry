@@ -220,7 +220,9 @@ func (s *Server) UploadArtifact(
 
 	err = validateFQN(metadata.Fqn)
 	if err != nil {
-		log.Error().Err(err).Msg("Invalid package in UploadArtifactRequest metadata")
+		log.Error().
+			Err(err).
+			Msg("Invalid package in UploadArtifactRequest metadata")
 
 		return err
 	}
