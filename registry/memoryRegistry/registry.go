@@ -41,7 +41,7 @@ func New() *MemoryRegistry {
 
 // StoreArtifact stores an artifact in memory and returns its version hash
 func (r *MemoryRegistry) StoreArtifact(
-	fqn *proto_gen.FullyQualifiedName,
+	pkg *proto_gen.PackageName,
 	reader io.Reader,
 ) (string, error) {
 	// Read all content from reader
@@ -59,7 +59,7 @@ func (r *MemoryRegistry) StoreArtifact(
 	versionHash := hex.EncodeToString(h.Sum(nil))
 
 	// Generate storage key
-	key := r.getArtifactKey(fqn, versionHash)
+	key := r.getArtifactKey(pkg, versionHash)
 
 	// Store in memory
 	r.mu.Lock()
@@ -71,10 +71,10 @@ func (r *MemoryRegistry) StoreArtifact(
 
 // GetArtifact retrieves an artifact by identifier
 func (r *MemoryRegistry) GetArtifact(
-	fqn *proto_gen.FullyQualifiedName,
+	pkg *proto_gen.PackageName,
 	hash string,
 ) ([]byte, error) {
-	key := r.getArtifactKey(fqn, hash)
+	key := r.getArtifactKey(pkg, hash)
 
 	r.mu.RLock()
 	content, exists := r.artifacts[key]
@@ -96,10 +96,10 @@ func (r *MemoryRegistry) GetArtifact(
 
 // DeleteArtifact deletes an artifact by identifier
 func (r *MemoryRegistry) DeleteArtifact(
-	fqn *proto_gen.FullyQualifiedName,
+	pkg *proto_gen.PackageName,
 	hash string,
 ) error {
-	key := r.getArtifactKey(fqn, hash)
+	key := r.getArtifactKey(pkg, hash)
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -133,14 +133,13 @@ func (r *MemoryRegistry) Count() int {
 
 // getArtifactKey returns the storage key for an artifact
 func (r *MemoryRegistry) getArtifactKey(
-	fqn *proto_gen.FullyQualifiedName,
+	pkg *proto_gen.PackageName,
 	versionHash string,
 ) string {
 	return fmt.Sprintf(
-		"%s/%s/%s/%s",
-		fqn.Source,
-		fqn.Author,
-		fqn.Name,
+		"%s/%s/%s",
+		pkg.Namespace,
+		pkg.Name,
 		versionHash,
 	)
 }

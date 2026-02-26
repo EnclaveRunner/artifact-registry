@@ -11,22 +11,21 @@ import (
 
 func (db *DB) GetArtifactMetaByHash(
 	ctx context.Context,
-	fqn *proto_gen.FullyQualifiedName,
+	pkg *proto_gen.PackageName,
 	hash string,
 ) (*Artifact, error) {
-	if fqn == nil {
+	if pkg == nil {
 		return nil, &BadInputError{
-			Reason: "artifact with nil FullyQualifiedName",
+			Reason: "artifact with nil PackageName",
 		}
 	}
 
-	if hash == "" || fqn.Source == "" || fqn.Author == "" || fqn.Name == "" {
+	if hash == "" || pkg.Namespace == "" || pkg.Name == "" {
 		return nil, &BadInputError{
 			Reason: fmt.Sprintf(
-				"All parameters must be provided: source=%q, author=%q, name=%q, hash=%q",
-				fqn.Source,
-				fqn.Author,
-				fqn.Name,
+				"All parameters must be provided: namespace=%q, name=%q, hash=%q",
+				pkg.Namespace,
+				pkg.Name,
 				hash,
 			),
 		}
@@ -37,9 +36,8 @@ func (db *DB) GetArtifactMetaByHash(
 	artifact, err := gorm.G[Artifact](
 		db.dbGorm,
 	).Preload("Tags", nil).Where(&Artifact{
-		Source: fqn.Source,
-		Author: fqn.Author,
-		Name:   fqn.Name,
+		Author: pkg.Namespace,
+		Name:   pkg.Name,
 		Hash:   hash,
 	}).First(ctx)
 	if err != nil {
@@ -47,10 +45,9 @@ func (db *DB) GetArtifactMetaByHash(
 			err,
 			"get artifact by hash",
 			fmt.Sprintf(
-				"source=%s, author=%s, name=%s, hash=%s",
-				fqn.Source,
-				fqn.Author,
-				fqn.Name,
+				"namespace=%s, name=%s, hash=%s",
+				pkg.Namespace,
+				pkg.Name,
 				hash,
 			),
 		)
@@ -61,31 +58,29 @@ func (db *DB) GetArtifactMetaByHash(
 
 func (db *DB) GetArtifactMetaByTag(
 	ctx context.Context,
-	fqn *proto_gen.FullyQualifiedName,
+	pkg *proto_gen.PackageName,
 	tag string,
 ) (*Artifact, error) {
-	if fqn == nil {
+	if pkg == nil {
 		return nil, &BadInputError{
-			Reason: "artifact with nil FullyQualifiedName",
+			Reason: "artifact with nil PackageName",
 		}
 	}
 
-	if tag == "" || fqn.Source == "" || fqn.Author == "" || fqn.Name == "" {
+	if tag == "" || pkg.Namespace == "" || pkg.Name == "" {
 		return nil, &BadInputError{
 			Reason: fmt.Sprintf(
-				"All parameters must be provided: source=%q, author=%q, name=%q, tag=%q",
-				fqn.Source,
-				fqn.Author,
-				fqn.Name,
+				"All parameters must be provided: namespace=%q, name=%q, tag=%q",
+				pkg.Namespace,
+				pkg.Name,
 				tag,
 			),
 		}
 	}
 
 	tagQuery, err := gorm.G[Tag](db.dbGorm).Where(&Tag{
-		Source:  fqn.Source,
-		Author:  fqn.Author,
-		Name:    fqn.Name,
+		Author:  pkg.Namespace,
+		Name:    pkg.Name,
 		TagName: tag,
 	}).First(ctx)
 	if err != nil {
@@ -93,24 +88,23 @@ func (db *DB) GetArtifactMetaByTag(
 			err,
 			"get tag",
 			fmt.Sprintf(
-				"source=%s, author=%s, name=%s, tag=%s",
-				fqn.Source,
-				fqn.Author,
-				fqn.Name,
+				"namespace=%s, name=%s, tag=%s",
+				pkg.Namespace,
+				pkg.Name,
 				tag,
 			),
 		)
 	}
 
-	return db.GetArtifactMetaByHash(ctx, fqn, tagQuery.Hash)
+	return db.GetArtifactMetaByHash(ctx, pkg, tagQuery.Hash)
 }
 
 func (db *DB) IncreasePullCount(
 	ctx context.Context,
-	fqn *proto_gen.FullyQualifiedName,
+	pkg *proto_gen.PackageName,
 	hash string,
 ) error {
-	artifact, err := db.GetArtifactMetaByHash(ctx, fqn, hash)
+	artifact, err := db.GetArtifactMetaByHash(ctx, pkg, hash)
 	if err != nil {
 		return err
 	}
@@ -121,10 +115,9 @@ func (db *DB) IncreasePullCount(
 		db.dbGorm.Save(&artifact).Error,
 		"increase pull count - save artifact",
 		fmt.Sprintf(
-			"source=%s, author=%s, name=%s, hash=%s",
-			fqn.Source,
-			fqn.Author,
-			fqn.Name,
+			"namespace=%s, name=%s, hash=%s",
+			pkg.Namespace,
+			pkg.Name,
 			hash,
 		),
 	)
@@ -132,30 +125,28 @@ func (db *DB) IncreasePullCount(
 
 func (db *DB) GetArtifactMetasByFQN(
 	ctx context.Context,
-	fqn *proto_gen.FullyQualifiedName,
+	pkg *proto_gen.PackageName,
 ) ([]Artifact, error) {
-	if fqn == nil {
+	if pkg == nil {
 		return nil, &BadInputError{
-			Reason: "artifact with nil FullyQualifiedName",
+			Reason: "artifact with nil PackageName",
 		}
 	}
 
 	artifacts, err := gorm.G[Artifact](
 		db.dbGorm,
 	).Preload("Tags", nil).Where(&Artifact{
-		Source: fqn.Source,
-		Author: fqn.Author,
-		Name:   fqn.Name,
+		Author: pkg.Namespace,
+		Name:   pkg.Name,
 	}).Find(ctx)
 	if err != nil {
 		return nil, wrapErrorWithDetails(
 			err,
 			"get artifacts by FQN",
 			fmt.Sprintf(
-				"source=%s, author=%s, name=%s",
-				fqn.Source,
-				fqn.Author,
-				fqn.Name,
+				"namespace=%s, name=%s",
+				pkg.Namespace,
+				pkg.Name,
 			),
 		)
 	}
@@ -165,34 +156,32 @@ func (db *DB) GetArtifactMetasByFQN(
 
 func (db *DB) CreateArtifactMeta(
 	ctx context.Context,
-	fqn *proto_gen.FullyQualifiedName,
+	pkg *proto_gen.PackageName,
 	versionHash string,
 	tags ...string,
 ) error {
-	if fqn == nil {
+	if pkg == nil {
 		return &BadInputError{
-			Reason: "artifact with nil FullyQualifiedName",
+			Reason: "artifact with nil PackageName",
 		}
 	}
 
-	if versionHash == "" || fqn.Source == "" || fqn.Author == "" ||
-		fqn.Name == "" {
+	if versionHash == "" || pkg.Namespace == "" ||
+		pkg.Name == "" {
 		return &BadInputError{
 			Reason: fmt.Sprintf(
-				"All parameters must be provided: source=%q, author=%q, name=%q, hash=%q",
-				fqn.Source,
-				fqn.Author,
-				fqn.Name,
+				"All parameters must be provided: namespace=%q, name=%q, hash=%q",
+				pkg.Namespace,
+				pkg.Name,
 				versionHash,
 			),
 		}
 	}
 
 	detailString := fmt.Sprintf(
-		"source=%q, author=%q, name=%q, hash=%q, tags=%v",
-		fqn.Source,
-		fqn.Author,
-		fqn.Name,
+		"namespace=%q, name=%q, hash=%q, tags=%v",
+		pkg.Namespace,
+		pkg.Name,
 		versionHash,
 		tags,
 	)
@@ -200,9 +189,8 @@ func (db *DB) CreateArtifactMeta(
 	err := db.dbGorm.Transaction(func(tx *gorm.DB) error {
 		dbTx := db.UseTransaction(tx)
 		err := gorm.G[Artifact](tx).Create(ctx, &Artifact{
-			Source: fqn.Source,
-			Author: fqn.Author,
-			Name:   fqn.Name,
+			Author: pkg.Namespace,
+			Name:   pkg.Name,
 			Hash:   versionHash,
 		})
 		if err != nil {
@@ -214,7 +202,7 @@ func (db *DB) CreateArtifactMeta(
 		}
 
 		for _, tag := range tags {
-			err := dbTx.addTag(ctx, fqn, versionHash, tag)
+			err := dbTx.addTag(ctx, pkg, versionHash, tag)
 			if err != nil {
 				return err
 			}
@@ -228,23 +216,22 @@ func (db *DB) CreateArtifactMeta(
 }
 
 func (db *DB) DeleteArtifactMeta(
-	fqn *proto_gen.FullyQualifiedName,
+	pkg *proto_gen.PackageName,
 	versionHash string,
 ) error {
-	if fqn == nil {
+	if pkg == nil {
 		return &BadInputError{
-			Reason: "artifact with nil FullyQualifiedName",
+			Reason: "artifact with nil PackageName",
 		}
 	}
 
-	if versionHash == "" || fqn.Source == "" || fqn.Author == "" ||
-		fqn.Name == "" {
+	if versionHash == "" || pkg.Namespace == "" ||
+		pkg.Name == "" {
 		return &BadInputError{
 			Reason: fmt.Sprintf(
-				"All parameters must be provided: source=%q, author=%q, name=%q, hash=%q",
-				fqn.Source,
-				fqn.Author,
-				fqn.Name,
+				"All parameters must be provided: namespace=%q, name=%q, hash=%q",
+				pkg.Namespace,
+				pkg.Name,
 				versionHash,
 			),
 		}
@@ -253,18 +240,16 @@ func (db *DB) DeleteArtifactMeta(
 	return wrapErrorWithDetails(
 		db.dbGorm.Delete(
 			&Artifact{
-				Source: fqn.Source,
-				Author: fqn.Author,
-				Name:   fqn.Name,
+				Author: pkg.Namespace,
+				Name:   pkg.Name,
 				Hash:   versionHash,
 			},
 		).Error,
 		"delete artifact metadata",
 		fmt.Sprintf(
-			"source=%s, author=%s, name=%s, hash=%s",
-			fqn.Source,
-			fqn.Author,
-			fqn.Name,
+			"namespace=%s, name=%s, hash=%s",
+			pkg.Namespace,
+			pkg.Name,
 			versionHash,
 		),
 	)
@@ -272,23 +257,22 @@ func (db *DB) DeleteArtifactMeta(
 
 func (db *DB) AddTag(
 	ctx context.Context,
-	fqn *proto_gen.FullyQualifiedName,
+	pkg *proto_gen.PackageName,
 	versionHash, tag string,
 ) error {
-	if fqn == nil {
+	if pkg == nil {
 		return &BadInputError{
-			Reason: "artifact with nil FullyQualifiedName",
+			Reason: "artifact with nil PackageName",
 		}
 	}
 
-	if versionHash == "" || tag == "" || fqn.Source == "" || fqn.Author == "" ||
-		fqn.Name == "" {
+	if versionHash == "" || tag == "" || pkg.Namespace == "" ||
+		pkg.Name == "" {
 		return &BadInputError{
 			Reason: fmt.Sprintf(
-				"All parameters must be provided: source=%q, author=%q, name=%q, hash=%q, tag=%q",
-				fqn.Source,
-				fqn.Author,
-				fqn.Name,
+				"All parameters must be provided: namespace=%q, name=%q, hash=%q, tag=%q",
+				pkg.Namespace,
+				pkg.Name,
 				versionHash,
 				tag,
 			),
@@ -296,19 +280,17 @@ func (db *DB) AddTag(
 	}
 
 	detailString := fmt.Sprintf(
-		"source=%q, author=%q, name=%q, hash=%q, tag=%q",
-		fqn.Source,
-		fqn.Author,
-		fqn.Name,
+		"namespace=%q, name=%q, hash=%q, tag=%q",
+		pkg.Namespace,
+		pkg.Name,
 		versionHash,
 		tag,
 	)
 
 	// Check that artifact exists
 	count, err := gorm.G[Artifact](db.dbGorm).Where(Artifact{
-		Source: fqn.Source,
-		Author: fqn.Author,
-		Name:   fqn.Name,
+		Author: pkg.Namespace,
+		Name:   pkg.Name,
 		Hash:   versionHash,
 	}).Count(ctx, "*")
 	if err != nil {
@@ -322,35 +304,32 @@ func (db *DB) AddTag(
 	if count == 0 {
 		return &NotFoundError{
 			Search: fmt.Sprintf(
-				"Artifact source=%q, author=%q, name=%q, versionHash=%q does not exist",
-				fqn.Source,
-				fqn.Author,
-				fqn.Name,
+				"Artifact namespace=%q, name=%q, versionHash=%q does not exist",
+				pkg.Namespace,
+				pkg.Name,
 				versionHash,
 			),
 		}
 	}
 
-	return db.addTag(ctx, fqn, versionHash, tag)
+	return db.addTag(ctx, pkg, versionHash, tag)
 }
 
 func (db *DB) addTag(
 	ctx context.Context,
-	fqn *proto_gen.FullyQualifiedName,
+	pkg *proto_gen.PackageName,
 	versionHash, tag string,
 ) error {
 	tagObject := Tag{
-		Source:  fqn.Source,
-		Author:  fqn.Author,
-		Name:    fqn.Name,
+		Author:  pkg.Namespace,
+		Name:    pkg.Name,
 		TagName: tag,
 	}
 
 	detailString := fmt.Sprintf(
-		"source=%q, author=%q, name=%q, hash=%q, tag=%q",
-		fqn.Source,
-		fqn.Author,
-		fqn.Name,
+		"namespace=%q, name=%q, hash=%q, tag=%q",
+		pkg.Namespace,
+		pkg.Name,
 		versionHash,
 		tag,
 	)
@@ -381,22 +360,21 @@ func (db *DB) addTag(
 
 func (db *DB) RemoveTag(
 	ctx context.Context,
-	fqn *proto_gen.FullyQualifiedName,
+	pkg *proto_gen.PackageName,
 	tag string,
 ) error {
-	if fqn == nil {
+	if pkg == nil {
 		return &BadInputError{
-			Reason: "artifact with nil FullyQualifiedName",
+			Reason: "artifact with nil PackageName",
 		}
 	}
 
-	if tag == "" || fqn.Source == "" || fqn.Author == "" || fqn.Name == "" {
+	if tag == "" || pkg.Namespace == "" || pkg.Name == "" {
 		return &BadInputError{
 			Reason: fmt.Sprintf(
-				"All parameters must be provided: source=%q, author=%q, name=%q, tag=%q",
-				fqn.Source,
-				fqn.Author,
-				fqn.Name,
+				"All parameters must be provided: namespace=%q, name=%q, tag=%q",
+				pkg.Namespace,
+				pkg.Name,
 				tag,
 			),
 		}
@@ -404,17 +382,15 @@ func (db *DB) RemoveTag(
 
 	return wrapErrorWithDetails(
 		db.dbGorm.Delete(Tag{
-			Source:  fqn.Source,
-			Author:  fqn.Author,
-			Name:    fqn.Name,
+			Author:  pkg.Namespace,
+			Name:    pkg.Name,
 			TagName: tag,
 		}).Error,
 		"delete tag",
 		fmt.Sprintf(
-			"source=%q, author=%q, name=%q, tag=%q",
-			fqn.Source,
-			fqn.Author,
-			fqn.Name,
+			"namespace=%q, name=%q, tag=%q",
+			pkg.Namespace,
+			pkg.Name,
 			tag,
 		),
 	)

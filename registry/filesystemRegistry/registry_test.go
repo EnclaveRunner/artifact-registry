@@ -23,10 +23,9 @@ func TestFilesystemRegistry(t *testing.T) {
 		//nolint:errcheck // defer in test
 		defer os.RemoveAll(tmpDir)
 
-		fqn := &proto_gen.FullyQualifiedName{
-			Source: "github.com",
-			Author: "testuser",
-			Name:   "testapp",
+		fqn := &proto_gen.PackageName{
+			Namespace: "testuser",
+			Name:      "testapp",
 		}
 		content := []byte("test content for artifact")
 
@@ -46,8 +45,7 @@ func TestFilesystemRegistry(t *testing.T) {
 		// Verify that the artifact file was actually created on disk
 		expectedPath := filepath.Join(
 			tmpDir,
-			fqn.Source,
-			fqn.Author,
+			fqn.Namespace,
 			fqn.Name,
 			versionHash+".wasm",
 		)
@@ -68,10 +66,9 @@ func TestFilesystemRegistry(t *testing.T) {
 		//nolint:errcheck // defer in test
 		defer os.RemoveAll(tmpDir)
 
-		fqn := &proto_gen.FullyQualifiedName{
-			Source: "github.com",
-			Author: "testuser",
-			Name:   "testapp",
+		fqn := &proto_gen.PackageName{
+			Namespace: "testuser",
+			Name:      "testapp",
 		}
 		content := []byte("test content for artifact")
 
@@ -115,10 +112,9 @@ func TestFilesystemRegistry(t *testing.T) {
 		//nolint:errcheck // defer in test
 		defer os.RemoveAll(tmpDir)
 
-		fqn := &proto_gen.FullyQualifiedName{
-			Source: "github.com",
-			Author: "testuser",
-			Name:   "testapp",
+		fqn := &proto_gen.PackageName{
+			Namespace: "testuser",
+			Name:      "testapp",
 		}
 
 		nonExistentHash := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -137,10 +133,9 @@ func TestFilesystemRegistry(t *testing.T) {
 		//nolint:errcheck // defer in test
 		defer os.RemoveAll(tmpDir)
 
-		fqn := &proto_gen.FullyQualifiedName{
-			Source: "github.com",
-			Author: "testuser",
-			Name:   "testapp",
+		fqn := &proto_gen.PackageName{
+			Namespace: "testuser",
+			Name:      "testapp",
 		}
 		content := []byte("test content for artifact")
 		differentContent := []byte("different test content")
@@ -191,10 +186,9 @@ func TestFilesystemRegistry(t *testing.T) {
 		//nolint:errcheck // defer in test
 		defer os.RemoveAll(tmpDir)
 
-		fqn := &proto_gen.FullyQualifiedName{
-			Source: "github.com",
-			Author: "testuser",
-			Name:   "testapp",
+		fqn := &proto_gen.PackageName{
+			Namespace: "testuser",
+			Name:      "testapp",
 		}
 		content := []byte("test content for artifact")
 
@@ -222,8 +216,7 @@ func TestFilesystemRegistry(t *testing.T) {
 		// Verify artifact is gone from filesystem
 		expectedPath := filepath.Join(
 			tmpDir,
-			fqn.Source,
-			fqn.Author,
+			fqn.Namespace,
 			fqn.Name,
 			storedVersionHash+".wasm",
 		)
@@ -247,10 +240,9 @@ func TestFilesystemRegistry(t *testing.T) {
 		//nolint:errcheck // defer in test
 		defer os.RemoveAll(tmpDir)
 
-		fqn := &proto_gen.FullyQualifiedName{
-			Source: "github.com",
-			Author: "testuser",
-			Name:   "testapp",
+		fqn := &proto_gen.PackageName{
+			Namespace: "testuser",
+			Name:      "testapp",
 		}
 
 		nonExistentHash := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -271,11 +263,10 @@ func TestFilesystemRegistry(t *testing.T) {
 		//nolint:errcheck // defer in test
 		defer os.RemoveAll(tmpDir)
 
-		// Store artifact with complex FQN
-		complexFqn := &proto_gen.FullyQualifiedName{
-			Source: "complex.domain.com",
-			Author: "complex-author",
-			Name:   "complex-name-with-dashes",
+		// Store artifact with complex package name
+		complexFqn := &proto_gen.PackageName{
+			Namespace: "complex-author",
+			Name:      "complex-name-with-dashes",
 		}
 
 		complexContent := []byte("content for complex artifact")
@@ -290,8 +281,7 @@ func TestFilesystemRegistry(t *testing.T) {
 		// Verify directory structure was created correctly
 		expectedDir := filepath.Join(
 			tmpDir,
-			complexFqn.Source,
-			complexFqn.Author,
+			complexFqn.Namespace,
 			complexFqn.Name,
 		)
 		if info, err := os.Stat(expectedDir); err != nil {

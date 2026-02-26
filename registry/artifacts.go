@@ -21,33 +21,27 @@ func (s *Server) QueryArtifacts(
 	query *proto_gen.ArtifactQuery,
 ) (*proto_gen.ArtifactListResponse, error) {
 	logEvent := log.Info()
-	if query.Source != nil {
-		logEvent = logEvent.Str("source", *query.Source)
-	}
-	if query.Author != nil {
-		logEvent = logEvent.Str("author", *query.Author)
+	if query.Namespace != nil {
+		logEvent = logEvent.Str("namespace", *query.Namespace)
 	}
 	if query.Name != nil {
 		logEvent = logEvent.Str("name", *query.Name)
 	}
-	logEvent.Msg("Artifacts queried with FQN query")
+	logEvent.Msg("Artifacts queried with package query")
 
 	if s.registry == nil {
 		return &proto_gen.ArtifactListResponse{}, nil
 	}
 
-	fqn := &proto_gen.FullyQualifiedName{}
-	if query.Source != nil {
-		fqn.Source = *query.Source
-	}
-	if query.Author != nil {
-		fqn.Author = *query.Author
+	pkg := &proto_gen.PackageName{}
+	if query.Namespace != nil {
+		pkg.Namespace = *query.Namespace
 	}
 	if query.Name != nil {
-		fqn.Name = *query.Name
+		pkg.Name = *query.Name
 	}
 
-	artifacts, err := s.db.GetArtifactMetasByFQN(ctx, fqn)
+	artifacts, err := s.db.GetArtifactMetasByFQN(ctx, pkg)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to query artifacts")
 
@@ -58,10 +52,9 @@ func (s *Server) QueryArtifacts(
 	protoArtifacts := make([]*proto_gen.Artifact, 0, len(artifacts))
 	for _, a := range artifacts {
 		protoArtifacts = append(protoArtifacts, &proto_gen.Artifact{
-			Fqn: &proto_gen.FullyQualifiedName{
-				Source: a.Source,
-				Author: a.Author,
-				Name:   a.Name,
+			Package: &proto_gen.PackageName{
+				Namespace: a.Author,
+				Name:      a.Name,
 			},
 			VersionHash: a.Hash,
 			Tags:        tagsToStrings(a.Tags),
@@ -81,9 +74,9 @@ func (s *Server) PullArtifact(
 	req *proto_gen.ArtifactIdentifier,
 	serv proto_gen.RegistryService_PullArtifactServer,
 ) error {
-	err := validateFQN(req.Fqn)
+	err := validateFQN(req.Package)
 	if err != nil {
-		log.Error().Err(err).Msg("Invalid FQN in ArtifactIdentifier")
+		log.Error().Err(err).Msg("Invalid package in ArtifactIdentifier")
 
 		return err
 	}
@@ -117,9 +110,8 @@ func (s *Server) PullArtifact(
 	}
 
 	log.Info().
-		Str("source", req.Fqn.Source).
-		Str("author", req.Fqn.Author).
-		Str("name", req.Fqn.Name).
+		Str("namespace", req.Package.Namespace).
+		Str("name", req.Package.Name).
 		Msg("Artifact pull requested")
 
 	if s.registry == nil {
@@ -132,14 +124,14 @@ func (s *Server) PullArtifact(
 
 	switch identifier := req.Identifier.(type) {
 	case *proto_gen.ArtifactIdentifier_VersionHash:
-		artifactMeta, err = s.db.GetArtifactMetaByHash(serv.Context(), req.Fqn, identifier.VersionHash)
+		artifactMeta, err = s.db.GetArtifactMetaByHash(serv.Context(), req.Package, identifier.VersionHash)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to get artifact by version hash")
 
 			return wrapServiceError(err, "retrieving artifact by version hash")
 		}
 	case *proto_gen.ArtifactIdentifier_Tag:
-		artifactMeta, err = s.db.GetArtifactMetaByTag(serv.Context(), req.Fqn, identifier.Tag)
+		artifactMeta, err = s.db.GetArtifactMetaByTag(serv.Context(), req.Package, identifier.Tag)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to get artifact by tag")
 
@@ -148,7 +140,7 @@ func (s *Server) PullArtifact(
 	}
 
 	// Get the artifact from the registry
-	content, err := s.registry.GetArtifact(req.Fqn, artifactMeta.Hash)
+	content, err := s.registry.GetArtifact(req.Package, artifactMeta.Hash)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to get artifact for pull")
 
@@ -199,7 +191,7 @@ func (s *Server) PullArtifact(
 		Msg("Successfully streamed complete artifact")
 
 	// Increment pull count
-	if err := s.db.IncreasePullCount(serv.Context(), req.Fqn, versionHash); err != nil {
+	if err := s.db.IncreasePullCount(serv.Context(), req.Package, versionHash); err != nil {
 		log.Warn().Err(err).Msg("Failed to increment pull count")
 	}
 
@@ -228,14 +220,15 @@ func (s *Server) UploadArtifact(
 
 	err = validateFQN(metadata.Fqn)
 	if err != nil {
-		log.Error().Err(err).Msg("Invalid FQN in UploadArtifactRequest metadata")
+		log.Error().
+			Err(err).
+			Msg("Invalid package in UploadArtifactRequest metadata")
 
 		return err
 	}
 
 	log.Info().
-		Str("source", metadata.Fqn.Source).
-		Str("author", metadata.Fqn.Author).
+		Str("namespace", metadata.Fqn.Namespace).
 		Str("name", metadata.Fqn.Name).
 		Msg("UploadArtifact triggered")
 
@@ -344,14 +337,13 @@ func (s *Server) UploadArtifact(
 	}
 
 	log.Info().
-		Str("source", metadata.Fqn.Source).
-		Str("author", metadata.Fqn.Author).
+		Str("namespace", metadata.Fqn.Namespace).
 		Str("name", metadata.Fqn.Name).
 		Str("versionHash", versionHash).
 		Msg("Artifact uploaded successfully")
 
 	err = stream.SendAndClose(&proto_gen.Artifact{
-		Fqn:         metadata.Fqn,
+		Package:     metadata.Fqn,
 		VersionHash: versionHash,
 		Tags:        metadata.Tags,
 		Metadata: &proto_gen.MetaData{
@@ -372,17 +364,16 @@ func (s *Server) DeleteArtifact(
 	ctx context.Context,
 	id *proto_gen.ArtifactIdentifier,
 ) (*proto_gen.Artifact, error) {
-	err := validateFQN(id.Fqn)
+	err := validateFQN(id.Package)
 	if err != nil {
-		log.Error().Err(err).Msg("Invalid FQN in DeleteArtifact request")
+		log.Error().Err(err).Msg("Invalid package in DeleteArtifact request")
 
 		return nil, err
 	}
 
 	log.Info().
-		Str("source", id.Fqn.Source).
-		Str("author", id.Fqn.Author).
-		Str("name", id.Fqn.Name).
+		Str("namespace", id.Package.Namespace).
+		Str("name", id.Package.Name).
 		Msg("Deletion of artifact requested")
 
 	if s.registry == nil {
@@ -399,14 +390,14 @@ func (s *Server) DeleteArtifact(
 		)
 	}
 
-	err = s.registry.DeleteArtifact(id.Fqn, artifactMeta.Hash)
+	err = s.registry.DeleteArtifact(id.Package, artifactMeta.Hash)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to delete artifact")
 
 		return nil, wrapServiceError(err, "deleting artifact")
 	}
 
-	err = s.db.DeleteArtifactMeta(id.Fqn, artifactMeta.Hash)
+	err = s.db.DeleteArtifactMeta(id.Package, artifactMeta.Hash)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to delete artifact metadata")
 
@@ -414,10 +405,9 @@ func (s *Server) DeleteArtifact(
 	}
 
 	result := &proto_gen.Artifact{
-		Fqn: &proto_gen.FullyQualifiedName{
-			Source: artifactMeta.Source,
-			Author: artifactMeta.Author,
-			Name:   artifactMeta.Name,
+		Package: &proto_gen.PackageName{
+			Namespace: artifactMeta.Author,
+			Name:      artifactMeta.Name,
 		},
 		VersionHash: artifactMeta.Hash,
 		Tags:        tagsToStrings(artifactMeta.Tags),
@@ -434,17 +424,16 @@ func (s *Server) GetArtifact(
 	ctx context.Context,
 	id *proto_gen.ArtifactIdentifier,
 ) (*proto_gen.Artifact, error) {
-	err := validateFQN(id.Fqn)
+	err := validateFQN(id.Package)
 	if err != nil {
-		log.Error().Err(err).Msg("Invalid FQN in GetArtifact request")
+		log.Error().Err(err).Msg("Invalid package in GetArtifact request")
 
 		return nil, err
 	}
 
 	log.Info().
-		Str("source", id.Fqn.Source).
-		Str("author", id.Fqn.Author).
-		Str("name", id.Fqn.Name).
+		Str("namespace", id.Package.Namespace).
+		Str("name", id.Package.Name).
 		Msg("Information about an artifact requested")
 
 	if s.registry == nil {
@@ -459,10 +448,9 @@ func (s *Server) GetArtifact(
 	}
 
 	return &proto_gen.Artifact{
-		Fqn: &proto_gen.FullyQualifiedName{
-			Source: artifactMeta.Source,
-			Author: artifactMeta.Author,
-			Name:   artifactMeta.Name,
+		Package: &proto_gen.PackageName{
+			Namespace: artifactMeta.Author,
+			Name:      artifactMeta.Name,
 		},
 		VersionHash: artifactMeta.Hash,
 		Tags:        tagsToStrings(artifactMeta.Tags),
@@ -485,9 +473,8 @@ func (s *Server) AddTag(
 	}
 
 	log.Info().
-		Str("source", req.Fqn.Source).
-		Str("author", req.Fqn.Author).
-		Str("name", req.Fqn.Name).
+		Str("namespace", req.Package.Namespace).
+		Str("name", req.Package.Name).
 		Str("tag", req.Tag).
 		Msg("Tag creation requested")
 
@@ -495,7 +482,7 @@ func (s *Server) AddTag(
 		return nil, newRegistryUnavailableError("adding tag")
 	}
 
-	err = s.db.AddTag(ctx, req.Fqn, req.VersionHash, req.Tag)
+	err = s.db.AddTag(ctx, req.Package, req.VersionHash, req.Tag)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to add tag")
 
@@ -504,7 +491,7 @@ func (s *Server) AddTag(
 
 	// Return the artifact
 	id := &proto_gen.ArtifactIdentifier{
-		Fqn: req.Fqn,
+		Package: req.Package,
 		Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
 			VersionHash: req.VersionHash,
 		},
@@ -525,9 +512,8 @@ func (s *Server) RemoveTag(
 	}
 
 	log.Info().
-		Str("source", req.Fqn.Source).
-		Str("author", req.Fqn.Author).
-		Str("name", req.Fqn.Name).
+		Str("namespace", req.Package.Namespace).
+		Str("name", req.Package.Name).
 		Str("tag", req.Tag).
 		Str("hash", req.VersionHash).
 		Msg("RemoveTag called")
@@ -538,7 +524,7 @@ func (s *Server) RemoveTag(
 
 	// Query the artifact to ensure it exists
 	id := &proto_gen.ArtifactIdentifier{
-		Fqn: req.Fqn,
+		Package: req.Package,
 		Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
 			VersionHash: req.VersionHash,
 		},
@@ -572,7 +558,7 @@ func (s *Server) RemoveTag(
 		}
 	}
 
-	err = s.db.RemoveTag(ctx, req.Fqn, req.Tag)
+	err = s.db.RemoveTag(ctx, req.Package, req.Tag)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to remove tag")
 
@@ -599,14 +585,14 @@ func (s *Server) resolveIdentifier(
 	var artifactMeta *orm.Artifact
 	switch identifier := id.Identifier.(type) {
 	case *proto_gen.ArtifactIdentifier_VersionHash:
-		artifactMeta, err = s.db.GetArtifactMetaByHash(ctx, id.Fqn, identifier.VersionHash)
+		artifactMeta, err = s.db.GetArtifactMetaByHash(ctx, id.Package, identifier.VersionHash)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to resolve artifact by version hash")
 
 			return nil, wrapServiceError(err, "resolving artifact by version hash")
 		}
 	case *proto_gen.ArtifactIdentifier_Tag:
-		artifactMeta, err = s.db.GetArtifactMetaByTag(ctx, id.Fqn, identifier.Tag)
+		artifactMeta, err = s.db.GetArtifactMetaByTag(ctx, id.Package, identifier.Tag)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to resolve artifact by version tag")
 

@@ -55,7 +55,7 @@ func New(baseDir string) (*FilesystemRegistry, error) {
 // StoreArtifact stores an artifact in the filesystem and returns its version
 // hash
 func (r *FilesystemRegistry) StoreArtifact(
-	fqn *proto_gen.FullyQualifiedName,
+	pkg *proto_gen.PackageName,
 	reader io.Reader,
 ) (string, error) {
 	uuidVal, err := uuid.NewUUID()
@@ -137,7 +137,7 @@ func (r *FilesystemRegistry) StoreArtifact(
 	versionHash := hex.EncodeToString(h.Sum(nil))
 
 	// Rename the temp file to the final path
-	finalPath := r.getArtifactPath(fqn, versionHash)
+	finalPath := r.getArtifactPath(pkg, versionHash)
 	// Ensure the final directory exists before renaming
 	finalDir := filepath.Dir(finalPath)
 
@@ -160,10 +160,10 @@ func (r *FilesystemRegistry) StoreArtifact(
 
 // GetArtifact retrieves an artifact by identifier
 func (r *FilesystemRegistry) GetArtifact(
-	fqn *proto_gen.FullyQualifiedName,
+	pkg *proto_gen.PackageName,
 	hash string,
 ) ([]byte, error) {
-	artifactPath := r.getArtifactPath(fqn, hash)
+	artifactPath := r.getArtifactPath(pkg, hash)
 	//nolint:gosec // G304: File path is constructed internally and validated
 	content, err := os.ReadFile(artifactPath)
 	if err != nil {
@@ -178,11 +178,11 @@ func (r *FilesystemRegistry) GetArtifact(
 
 // DeleteArtifact deletes an artifact by identifier
 func (r *FilesystemRegistry) DeleteArtifact(
-	fqn *proto_gen.FullyQualifiedName,
+	pkg *proto_gen.PackageName,
 	hash string,
 ) error {
 	// Remove the file
-	artifactPath := r.getArtifactPath(fqn, hash)
+	artifactPath := r.getArtifactPath(pkg, hash)
 	if err := os.Remove(artifactPath); err != nil {
 		return &IOError{
 			"deleting artifact",
@@ -195,14 +195,13 @@ func (r *FilesystemRegistry) DeleteArtifact(
 
 // getArtifactPath returns the file path for an artifact
 func (r *FilesystemRegistry) getArtifactPath(
-	fqn *proto_gen.FullyQualifiedName,
+	pkg *proto_gen.PackageName,
 	versionHash string,
 ) string {
 	return filepath.Join(
 		r.baseDir,
-		fqn.Source,
-		fqn.Author,
-		fqn.Name,
+		pkg.Namespace,
+		pkg.Name,
 		versionHash+".wasm",
 	)
 }
