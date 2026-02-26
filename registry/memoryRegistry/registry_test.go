@@ -16,10 +16,9 @@ func TestMemoryRegistry(t *testing.T) {
 		t.Parallel()
 
 		registry := New()
-		fqn := &proto_gen.FullyQualifiedName{
-			Source: "github.com",
-			Author: "testuser",
-			Name:   "testapp",
+		fqn := &proto_gen.PackageName{
+			Namespace: "testuser",
+			Name:      "testapp",
 		}
 		content := []byte("test content for artifact")
 
@@ -47,10 +46,9 @@ func TestMemoryRegistry(t *testing.T) {
 		t.Parallel()
 
 		registry := New()
-		fqn := &proto_gen.FullyQualifiedName{
-			Source: "github.com",
-			Author: "testuser",
-			Name:   "testapp",
+		fqn := &proto_gen.PackageName{
+			Namespace: "testuser",
+			Name:      "testapp",
 		}
 		content := []byte("test content for artifact")
 
@@ -90,10 +88,9 @@ func TestMemoryRegistry(t *testing.T) {
 		t.Parallel()
 
 		registry := New()
-		fqn := &proto_gen.FullyQualifiedName{
-			Source: "github.com",
-			Author: "testuser",
-			Name:   "testapp",
+		fqn := &proto_gen.PackageName{
+			Namespace: "testuser",
+			Name:      "testapp",
 		}
 
 		nonExistentHash := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -108,10 +105,9 @@ func TestMemoryRegistry(t *testing.T) {
 		t.Parallel()
 
 		registry := New()
-		fqn := &proto_gen.FullyQualifiedName{
-			Source: "github.com",
-			Author: "testuser",
-			Name:   "testapp",
+		fqn := &proto_gen.PackageName{
+			Namespace: "testuser",
+			Name:      "testapp",
 		}
 		content := []byte("test content for artifact")
 		differentContent := []byte("different test content")
@@ -163,10 +159,9 @@ func TestMemoryRegistry(t *testing.T) {
 		t.Parallel()
 
 		registry := New()
-		fqn := &proto_gen.FullyQualifiedName{
-			Source: "github.com",
-			Author: "testuser",
-			Name:   "testapp",
+		fqn := &proto_gen.PackageName{
+			Namespace: "testuser",
+			Name:      "testapp",
 		}
 		content := []byte("test content for artifact")
 
@@ -208,10 +203,9 @@ func TestMemoryRegistry(t *testing.T) {
 		t.Parallel()
 
 		registry := New()
-		fqn := &proto_gen.FullyQualifiedName{
-			Source: "github.com",
-			Author: "testuser",
-			Name:   "testapp",
+		fqn := &proto_gen.PackageName{
+			Namespace: "testuser",
+			Name:      "testapp",
 		}
 
 		nonExistentHash := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
@@ -230,10 +224,9 @@ func TestMemoryRegistry(t *testing.T) {
 		registry := New()
 
 		// Store artifact with complex FQN
-		complexFqn := &proto_gen.FullyQualifiedName{
-			Source: "complex.domain.com",
-			Author: "complex-author",
-			Name:   "complex-name-with-dashes",
+		complexFqn := &proto_gen.PackageName{
+			Namespace: "complex-author",
+			Name:      "complex-name-with-dashes",
 		}
 
 		complexContent := []byte("content for complex artifact")
@@ -261,10 +254,9 @@ func TestMemoryRegistry(t *testing.T) {
 		t.Parallel()
 
 		registry := New()
-		fqn := &proto_gen.FullyQualifiedName{
-			Source: "github.com",
-			Author: "testuser",
-			Name:   "testapp",
+		fqn := &proto_gen.PackageName{
+			Namespace: "testuser",
+			Name:      "testapp",
 		}
 
 		// Store multiple artifacts
@@ -295,10 +287,9 @@ func TestMemoryRegistry(t *testing.T) {
 		t.Parallel()
 
 		registry := New()
-		fqn := &proto_gen.FullyQualifiedName{
-			Source: "github.com",
-			Author: "testuser",
-			Name:   "testapp",
+		fqn := &proto_gen.PackageName{
+			Namespace: "testuser",
+			Name:      "testapp",
 		}
 		content := []byte("test content for artifact")
 
@@ -334,10 +325,9 @@ func TestMemoryRegistry(t *testing.T) {
 		t.Parallel()
 
 		registry := New()
-		fqn := &proto_gen.FullyQualifiedName{
-			Source: "github.com",
-			Author: "testuser",
-			Name:   "testapp",
+		fqn := &proto_gen.PackageName{
+			Namespace: "testuser",
+			Name:      "testapp",
 		}
 
 		// Number of concurrent operations
@@ -406,10 +396,9 @@ func TestMemoryRegistry(t *testing.T) {
 		t.Parallel()
 
 		registry := New()
-		fqn := &proto_gen.FullyQualifiedName{
-			Source: "github.com",
-			Author: "testuser",
-			Name:   "testapp",
+		fqn := &proto_gen.PackageName{
+			Namespace: "testuser",
+			Name:      "testapp",
 		}
 		content := []byte{}
 
@@ -440,10 +429,9 @@ func TestMemoryRegistry(t *testing.T) {
 		t.Parallel()
 
 		registry := New()
-		fqn := &proto_gen.FullyQualifiedName{
-			Source: "github.com",
-			Author: "testuser",
-			Name:   "testapp",
+		fqn := &proto_gen.PackageName{
+			Namespace: "testuser",
+			Name:      "testapp",
 		}
 		content := []byte("identical content")
 
@@ -488,16 +476,14 @@ func TestMemoryRegistry(t *testing.T) {
 
 		registry := New()
 
-		fqn1 := &proto_gen.FullyQualifiedName{
-			Source: "github.com",
-			Author: "author1",
-			Name:   "app1",
+		fqn1 := &proto_gen.PackageName{
+			Namespace: "author1",
+			Name:      "app1",
 		}
 
-		fqn2 := &proto_gen.FullyQualifiedName{
-			Source: "gitlab.com",
-			Author: "author2",
-			Name:   "app2",
+		fqn2 := &proto_gen.PackageName{
+			Namespace: "author2",
+			Name:      "app2",
 		}
 
 		content := []byte("same content for both")

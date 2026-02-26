@@ -14,11 +14,11 @@ var (
 	ErrEmptyVersionHash  = errors.New("versionHash cannot be empty")
 )
 
-func validateFQN(fqn *proto_gen.FullyQualifiedName) error {
-	if fqn == nil || fqn.Source == "" || fqn.Author == "" || fqn.Name == "" {
+func validateFQN(pkg *proto_gen.PackageName) error {
+	if pkg == nil || pkg.Namespace == "" || pkg.Name == "" {
 		return &ServiceError{
 			Code:    codes.InvalidArgument,
-			Message: "FullyQualifiedName must have source, author, and name",
+			Message: "PackageName must have namespace and name",
 			Inner:   ErrInvalidIdentifier,
 		}
 	}
@@ -27,7 +27,7 @@ func validateFQN(fqn *proto_gen.FullyQualifiedName) error {
 }
 
 func validateArtifactIdentifier(id *proto_gen.ArtifactIdentifier) error {
-	if err := validateFQN(id.Fqn); err != nil {
+	if err := validateFQN(id.Package); err != nil {
 		return err
 	}
 
@@ -56,7 +56,7 @@ func validateArtifactIdentifier(id *proto_gen.ArtifactIdentifier) error {
 }
 
 func validateAddRemoveTagRequest(req *proto_gen.AddRemoveTagRequest) error {
-	if err := validateFQN(req.Fqn); err != nil {
+	if err := validateFQN(req.Package); err != nil {
 		return err
 	}
 

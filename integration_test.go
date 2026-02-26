@@ -117,10 +117,9 @@ func TestUploadAndGetArtifact(t *testing.T) {
 	go startServer()
 
 	// Upload an artifact
-	fqn := &proto_gen.FullyQualifiedName{
-		Source: "github",
-		Author: "upload-get-test",
-		Name:   "myartifact",
+	fqn := &proto_gen.PackageName{
+		Namespace: "upload-get-test",
+		Name:      "myartifact",
 	}
 	tags := []string{"v1.0.0", "latest"}
 	content := []byte("test artifact content")
@@ -128,9 +127,8 @@ func TestUploadAndGetArtifact(t *testing.T) {
 	artifact := uploadArtifact(t, client, fqn, tags, content)
 
 	assert.NotNil(t, artifact)
-	assert.Equal(t, fqn.Source, artifact.Fqn.Source)
-	assert.Equal(t, fqn.Author, artifact.Fqn.Author)
-	assert.Equal(t, fqn.Name, artifact.Fqn.Name)
+	assert.Equal(t, fqn.Namespace, artifact.Package.Namespace)
+	assert.Equal(t, fqn.Name, artifact.Package.Name)
 	assert.NotEmpty(t, artifact.VersionHash)
 	assert.ElementsMatch(t, tags, artifact.Tags)
 	assert.NotNil(t, artifact.Metadata)
@@ -138,7 +136,7 @@ func TestUploadAndGetArtifact(t *testing.T) {
 
 	// Get artifact by version hash
 	getReq := &proto_gen.ArtifactIdentifier{
-		Fqn: fqn,
+		Package: fqn,
 		Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
 			VersionHash: artifact.VersionHash,
 		},
@@ -158,10 +156,9 @@ func TestUploadAndPullArtifact(t *testing.T) {
 	client, startServer := configureServer(t, t.TempDir())
 	go startServer()
 
-	fqn := &proto_gen.FullyQualifiedName{
-		Source: "gitlab",
-		Author: "upload-pull-test",
-		Name:   "testapp",
+	fqn := &proto_gen.PackageName{
+		Namespace: "upload-pull-test",
+		Name:      "testapp",
 	}
 	tags := []string{"v2.0.0"}
 	content := []byte("This is test artifact content with some data")
@@ -170,7 +167,7 @@ func TestUploadAndPullArtifact(t *testing.T) {
 
 	// Pull artifact by version hash
 	pullReq := &proto_gen.ArtifactIdentifier{
-		Fqn: fqn,
+		Package: fqn,
 		Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
 			VersionHash: artifact.VersionHash,
 		},
@@ -198,10 +195,9 @@ func TestPullArtifactByTag(t *testing.T) {
 	client, startServer := configureServer(t, t.TempDir())
 	go startServer()
 
-	fqn := &proto_gen.FullyQualifiedName{
-		Source: "github",
-		Author: "pull-by-tag-test",
-		Name:   "project",
+	fqn := &proto_gen.PackageName{
+		Namespace: "pull-by-tag-test",
+		Name:      "project",
 	}
 	tags := []string{"stable", "production"}
 	content := []byte("production artifact content")
@@ -210,7 +206,7 @@ func TestPullArtifactByTag(t *testing.T) {
 
 	// Pull by tag
 	pullReq := &proto_gen.ArtifactIdentifier{
-		Fqn: fqn,
+		Package: fqn,
 		Identifier: &proto_gen.ArtifactIdentifier_Tag{
 			Tag: "stable",
 		},
@@ -228,7 +224,7 @@ func TestPullArtifactByTag(t *testing.T) {
 
 	// Verify pull count is 2
 	getReq := &proto_gen.ArtifactIdentifier{
-		Fqn: fqn,
+		Package: fqn,
 		Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
 			VersionHash: artifact.VersionHash,
 		},
@@ -247,45 +243,49 @@ func TestQueryArtifacts(t *testing.T) {
 
 	// Upload multiple artifacts
 	artifacts := []struct {
-		fqn     *proto_gen.FullyQualifiedName
+		fqn     *proto_gen.PackageName
 		tags    []string
 		content []byte
 	}{
 		{
-			fqn: &proto_gen.FullyQualifiedName{
-				Source: "bitbucket",
-				Author: "query-test-user1",
-				Name:   "query-app1",
+			fqn: &proto_gen.PackageName{
+				Namespace: "query-test-ns1",
+				Name:      "query-app1",
 			},
 			tags:    []string{"v1.0.0"},
 			content: []byte("app1 content"),
 		},
 		{
-			fqn: &proto_gen.FullyQualifiedName{
-				Source: "bitbucket",
-				Author: "query-test-user1",
-				Name:   "query-app2",
+			fqn: &proto_gen.PackageName{
+				Namespace: "query-test-ns1",
+				Name:      "query-app2",
 			},
 			tags:    []string{"v1.0.0"},
 			content: []byte("app2 content"),
 		},
 		{
-			fqn: &proto_gen.FullyQualifiedName{
-				Source: "bitbucket",
-				Author: "query-test-user2",
-				Name:   "query-app1",
+			fqn: &proto_gen.PackageName{
+				Namespace: "query-test-ns1",
+				Name:      "query-app3",
 			},
 			tags:    []string{"v2.0.0"},
-			content: []byte("user2 app1 content"),
+			content: []byte("ns1 app3 content"),
 		},
 		{
-			fqn: &proto_gen.FullyQualifiedName{
-				Source: "gitlab",
-				Author: "query-test-user1",
-				Name:   "query-app1",
+			fqn: &proto_gen.PackageName{
+				Namespace: "query-test-ns2",
+				Name:      "query-app1",
 			},
 			tags:    []string{"v1.5.0"},
-			content: []byte("gitlab app1 content"),
+			content: []byte("ns2 app1 content"),
+		},
+		{
+			fqn: &proto_gen.PackageName{
+				Namespace: "query-test-ns3",
+				Name:      "query-app1",
+			},
+			tags:    []string{"v1.0.0"},
+			content: []byte("ns3 app1 content"),
 		},
 	}
 
@@ -293,20 +293,11 @@ func TestQueryArtifacts(t *testing.T) {
 		uploadArtifact(t, client, a.fqn, a.tags, a.content)
 	}
 
-	// Query by source
-	source := "bitbucket"
+	// Query by namespace
+	ns := "query-test-ns1"
 	resp, err := client.QueryArtifacts(
 		t.Context(),
-		&proto_gen.ArtifactQuery{Source: &source},
-	)
-	assert.NoError(t, err)
-	assert.Len(t, resp.Artifacts, 3)
-
-	// Query by author
-	author := "query-test-user1"
-	resp, err = client.QueryArtifacts(
-		t.Context(),
-		&proto_gen.ArtifactQuery{Author: &author},
+		&proto_gen.ArtifactQuery{Namespace: &ns},
 	)
 	assert.NoError(t, err)
 	assert.Len(t, resp.Artifacts, 3)
@@ -320,25 +311,15 @@ func TestQueryArtifacts(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, resp.Artifacts, 3)
 
-	// Query by source and author
+	// Query by namespace and name
 	resp, err = client.QueryArtifacts(t.Context(), &proto_gen.ArtifactQuery{
-		Source: &source,
-		Author: &author,
-	})
-	assert.NoError(t, err)
-	assert.Len(t, resp.Artifacts, 2)
-
-	// Query by full FQN
-	resp, err = client.QueryArtifacts(t.Context(), &proto_gen.ArtifactQuery{
-		Source: &source,
-		Author: &author,
-		Name:   &name,
+		Namespace: &ns,
+		Name:      &name,
 	})
 	assert.NoError(t, err)
 	assert.Len(t, resp.Artifacts, 1)
-	assert.Equal(t, "bitbucket", resp.Artifacts[0].Fqn.Source)
-	assert.Equal(t, "query-test-user1", resp.Artifacts[0].Fqn.Author)
-	assert.Equal(t, "query-app1", resp.Artifacts[0].Fqn.Name)
+	assert.Equal(t, "query-test-ns1", resp.Artifacts[0].Package.Namespace)
+	assert.Equal(t, "query-app1", resp.Artifacts[0].Package.Name)
 }
 
 // TestAddAndRemoveTags tests tag management operations
@@ -348,10 +329,9 @@ func TestAddAndRemoveTags(t *testing.T) {
 	client, startServer := configureServer(t, t.TempDir())
 	go startServer()
 
-	fqn := &proto_gen.FullyQualifiedName{
-		Source: "github",
-		Author: "tag-test-user",
-		Name:   "tag-test-app",
+	fqn := &proto_gen.PackageName{
+		Namespace: "tag-test-user",
+		Name:      "tag-test-app",
 	}
 	initialTags := []string{"v1.0.0"}
 	content := []byte("test content")
@@ -360,7 +340,7 @@ func TestAddAndRemoveTags(t *testing.T) {
 
 	// Add a new tag
 	addReq := &proto_gen.AddRemoveTagRequest{
-		Fqn:         fqn,
+		Package:     fqn,
 		VersionHash: artifact.VersionHash,
 		Tag:         "latest",
 	}
@@ -380,7 +360,7 @@ func TestAddAndRemoveTags(t *testing.T) {
 
 	// Remove a tag
 	removeReq := &proto_gen.AddRemoveTagRequest{
-		Fqn:         fqn,
+		Package:     fqn,
 		VersionHash: artifact.VersionHash,
 		Tag:         "v1.0.0",
 	}
@@ -400,10 +380,9 @@ func TestDeleteTagFromNonExistentArtifact(t *testing.T) {
 	go startServer()
 
 	// Create an artifact
-	fqn := &proto_gen.FullyQualifiedName{
-		Source: "github",
-		Author: "nonexistent-tag-test",
-		Name:   "nonexistent-tag-app",
+	fqn := &proto_gen.PackageName{
+		Namespace: "nonexistent-tag-test",
+		Name:      "nonexistent-tag-app",
 	}
 	tags := []string{"v1.0.0"}
 	content := []byte("test content")
@@ -412,7 +391,7 @@ func TestDeleteTagFromNonExistentArtifact(t *testing.T) {
 
 	// Delete tag
 	removeReq := &proto_gen.AddRemoveTagRequest{
-		Fqn:         fqn,
+		Package:     fqn,
 		VersionHash: "non existent hash",
 		Tag:         "v1.0.0",
 	}
@@ -422,7 +401,7 @@ func TestDeleteTagFromNonExistentArtifact(t *testing.T) {
 
 	// Verify original artifact is unaffected
 	getReq := &proto_gen.ArtifactIdentifier{
-		Fqn: fqn,
+		Package: fqn,
 		Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
 			VersionHash: artifact.VersionHash,
 		},
@@ -442,10 +421,9 @@ func TestDeleteTagThatDoesNotExist(t *testing.T) {
 	// Create an artifact
 	client, startServer := configureServer(t, t.TempDir())
 	go startServer()
-	fqn := &proto_gen.FullyQualifiedName{
-		Source: "github",
-		Author: "nonexistent-tag-test",
-		Name:   "nonexistent-tag-app2",
+	fqn := &proto_gen.PackageName{
+		Namespace: "nonexistent-tag-test",
+		Name:      "nonexistent-tag-app2",
 	}
 
 	content := []byte("test content")
@@ -453,7 +431,7 @@ func TestDeleteTagThatDoesNotExist(t *testing.T) {
 
 	// Delete tag that does not exist
 	removeReq := &proto_gen.AddRemoveTagRequest{
-		Fqn:         fqn,
+		Package:     fqn,
 		VersionHash: artifact.VersionHash,
 		Tag:         "nonexistent-tag",
 	}
@@ -463,7 +441,7 @@ func TestDeleteTagThatDoesNotExist(t *testing.T) {
 
 	// Delete artifact
 	getReq := &proto_gen.ArtifactIdentifier{
-		Fqn: fqn,
+		Package: fqn,
 		Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
 			VersionHash: artifact.VersionHash,
 		},
@@ -480,10 +458,9 @@ func TestDeleteArtifact(t *testing.T) {
 	client, startServer := configureServer(t, t.TempDir())
 	go startServer()
 
-	fqn := &proto_gen.FullyQualifiedName{
-		Source: "github",
-		Author: "delete-test-user",
-		Name:   "delete-test-app",
+	fqn := &proto_gen.PackageName{
+		Namespace: "delete-test-user",
+		Name:      "delete-test-app",
 	}
 	tags := []string{"v1.0.0"}
 	content := []byte("to be deleted")
@@ -492,7 +469,7 @@ func TestDeleteArtifact(t *testing.T) {
 
 	// Verify artifact exists
 	getReq := &proto_gen.ArtifactIdentifier{
-		Fqn: fqn,
+		Package: fqn,
 		Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
 			VersionHash: artifact.VersionHash,
 		},
@@ -526,10 +503,9 @@ func TestDeleteArtifactByTag(t *testing.T) {
 	client, startServer := configureServer(t, t.TempDir())
 	go startServer()
 
-	fqn := &proto_gen.FullyQualifiedName{
-		Source: "github",
-		Author: "delete-by-tag-test",
-		Name:   "delete-by-tag-app",
+	fqn := &proto_gen.PackageName{
+		Namespace: "delete-by-tag-test",
+		Name:      "delete-by-tag-app",
 	}
 	tags := []string{"v1.0.0", "deleteme"}
 	content := []byte("to be deleted by tag")
@@ -538,7 +514,7 @@ func TestDeleteArtifactByTag(t *testing.T) {
 
 	// Delete by tag
 	deleteReq := &proto_gen.ArtifactIdentifier{
-		Fqn: fqn,
+		Package: fqn,
 		Identifier: &proto_gen.ArtifactIdentifier_Tag{
 			Tag: "deleteme",
 		},
@@ -550,7 +526,7 @@ func TestDeleteArtifactByTag(t *testing.T) {
 
 	// Verify artifact is deleted
 	getReq := &proto_gen.ArtifactIdentifier{
-		Fqn: fqn,
+		Package: fqn,
 		Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
 			VersionHash: artifact.VersionHash,
 		},
@@ -566,10 +542,9 @@ func TestMultipleVersions(t *testing.T) {
 	client, startServer := configureServer(t, t.TempDir())
 	go startServer()
 
-	fqn := &proto_gen.FullyQualifiedName{
-		Source: "github",
-		Author: "multiversion-test",
-		Name:   "multiversion-app",
+	fqn := &proto_gen.PackageName{
+		Namespace: "multiversion-test",
+		Name:      "multiversion-app",
 	}
 
 	// Upload version 1
@@ -596,7 +571,7 @@ func TestMultipleVersions(t *testing.T) {
 
 	// Pull v1
 	v1Req := &proto_gen.ArtifactIdentifier{
-		Fqn: fqn,
+		Package: fqn,
 		Identifier: &proto_gen.ArtifactIdentifier_Tag{
 			Tag: "v1.0.0",
 		},
@@ -606,7 +581,7 @@ func TestMultipleVersions(t *testing.T) {
 
 	// Pull v2
 	v2Req := &proto_gen.ArtifactIdentifier{
-		Fqn: fqn,
+		Package: fqn,
 		Identifier: &proto_gen.ArtifactIdentifier_Tag{
 			Tag: "v2.0.0",
 		},
@@ -616,7 +591,7 @@ func TestMultipleVersions(t *testing.T) {
 
 	// Pull latest (should be v2)
 	latestReq := &proto_gen.ArtifactIdentifier{
-		Fqn: fqn,
+		Package: fqn,
 		Identifier: &proto_gen.ArtifactIdentifier_Tag{
 			Tag: "latest",
 		},
@@ -632,10 +607,9 @@ func TestLargeArtifact(t *testing.T) {
 	client, startServer := configureServer(t, t.TempDir())
 	go startServer()
 
-	fqn := &proto_gen.FullyQualifiedName{
-		Source: "github",
-		Author: "large-file-test",
-		Name:   "large-file-app",
+	fqn := &proto_gen.PackageName{
+		Namespace: "large-file-test",
+		Name:      "large-file-app",
 	}
 	tags := []string{"v1.0.0"}
 
@@ -650,7 +624,7 @@ func TestLargeArtifact(t *testing.T) {
 
 	// Pull and verify
 	pullReq := &proto_gen.ArtifactIdentifier{
-		Fqn: fqn,
+		Package: fqn,
 		Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
 			VersionHash: artifact.VersionHash,
 		},
@@ -660,7 +634,7 @@ func TestLargeArtifact(t *testing.T) {
 	assert.Equal(t, largeContent, pulled)
 }
 
-// TestInvalidFQN tests validation of FullyQualifiedName
+// TestInvalidFQN tests validation of PackageName
 func TestInvalidFQN(t *testing.T) {
 	t.Parallel()
 
@@ -669,34 +643,24 @@ func TestInvalidFQN(t *testing.T) {
 
 	testCases := []struct {
 		name string
-		fqn  *proto_gen.FullyQualifiedName
+		fqn  *proto_gen.PackageName
 	}{
 		{
-			name: "missing source",
-			fqn: &proto_gen.FullyQualifiedName{
-				Source: "",
-				Author: "user",
-				Name:   "app",
-			},
-		},
-		{
-			name: "missing author",
-			fqn: &proto_gen.FullyQualifiedName{
-				Source: "github",
-				Author: "",
-				Name:   "app",
+			name: "missing namespace",
+			fqn: &proto_gen.PackageName{
+				Namespace: "",
+				Name:      "app",
 			},
 		},
 		{
 			name: "missing name",
-			fqn: &proto_gen.FullyQualifiedName{
-				Source: "github",
-				Author: "user",
-				Name:   "",
+			fqn: &proto_gen.PackageName{
+				Namespace: "user",
+				Name:      "",
 			},
 		},
 		{
-			name: "nil fqn",
+			name: "nil package",
 			fqn:  nil,
 		},
 	}
@@ -704,9 +668,9 @@ func TestInvalidFQN(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			// Try GetArtifact with invalid FQN
+			// Try GetArtifact with invalid package
 			req := &proto_gen.ArtifactIdentifier{
-				Fqn: tc.fqn,
+				Package: tc.fqn,
 				Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
 					VersionHash: "somehash",
 				},
@@ -725,15 +689,14 @@ func TestInvalidIdentifiers(t *testing.T) {
 	client, startServer := configureServer(t, t.TempDir())
 	go startServer()
 
-	fqn := &proto_gen.FullyQualifiedName{
-		Source: "github",
-		Author: "invalid-identifier-test",
-		Name:   "invalid-identifier-app",
+	fqn := &proto_gen.PackageName{
+		Namespace: "invalid-identifier-test",
+		Name:      "invalid-identifier-app",
 	}
 
 	// Empty version hash
 	req := &proto_gen.ArtifactIdentifier{
-		Fqn: fqn,
+		Package: fqn,
 		Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
 			VersionHash: "",
 		},
@@ -756,15 +719,14 @@ func TestNonExistentArtifact(t *testing.T) {
 	client, startServer := configureServer(t, t.TempDir())
 	go startServer()
 
-	fqn := &proto_gen.FullyQualifiedName{
-		Source: "github",
-		Author: "nonexistent-test",
-		Name:   "nonexistent-app",
+	fqn := &proto_gen.PackageName{
+		Namespace: "nonexistent-test",
+		Name:      "nonexistent-app",
 	}
 
 	// Try to get non-existent artifact
 	req := &proto_gen.ArtifactIdentifier{
-		Fqn: fqn,
+		Package: fqn,
 		Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
 			VersionHash: "nonexistenthash",
 		},
@@ -791,15 +753,14 @@ func TestInvalidTagOperations(t *testing.T) {
 	client, startServer := configureServer(t, t.TempDir())
 	go startServer()
 
-	fqn := &proto_gen.FullyQualifiedName{
-		Source: "github",
-		Author: "invalid-tag-test",
-		Name:   "invalid-tag-app",
+	fqn := &proto_gen.PackageName{
+		Namespace: "invalid-tag-test",
+		Name:      "invalid-tag-app",
 	}
 
 	// Try to add tag to non-existent artifact
 	addReq := &proto_gen.AddRemoveTagRequest{
-		Fqn:         fqn,
+		Package:     fqn,
 		VersionHash: "nonexistenthash",
 		Tag:         "latest",
 	}
@@ -827,10 +788,9 @@ func TestArtifactWithMultipleTags(t *testing.T) {
 	client, startServer := configureServer(t, t.TempDir())
 	go startServer()
 
-	fqn := &proto_gen.FullyQualifiedName{
-		Source: "github",
-		Author: "multiple-tags-test",
-		Name:   "multiple-tags-app",
+	fqn := &proto_gen.PackageName{
+		Namespace: "multiple-tags-test",
+		Name:      "multiple-tags-app",
 	}
 	tags := []string{"v1.0.0", "latest", "stable", "production"}
 	content := []byte("multi-tag content")
@@ -841,7 +801,7 @@ func TestArtifactWithMultipleTags(t *testing.T) {
 	// Pull by each tag and verify
 	for _, tag := range tags {
 		pullReq := &proto_gen.ArtifactIdentifier{
-			Fqn: fqn,
+			Package: fqn,
 			Identifier: &proto_gen.ArtifactIdentifier_Tag{
 				Tag: tag,
 			},
@@ -856,7 +816,7 @@ func TestArtifactWithMultipleTags(t *testing.T) {
 func uploadArtifact(
 	t *testing.T,
 	client proto_gen.RegistryServiceClient,
-	fqn *proto_gen.FullyQualifiedName,
+	fqn *proto_gen.PackageName,
 	tags []string,
 	content []byte,
 ) *proto_gen.Artifact {
