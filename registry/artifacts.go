@@ -465,13 +465,18 @@ func (s *Server) SetTags(
 	ctx context.Context,
 	request *proto_gen.SetTagsRequest,
 ) (*proto_gen.Artifact, error) {
-	if request.Artifact == nil || request.Tags == nil {
-		log.Error().Msg("SetTagsRequest missing artifact or tags")
+	if request.Artifact == nil {
+		log.Error().Msg("SetTagsRequest missing artifact")
 
 		return nil, &ServiceError{
 			Code:    codes.InvalidArgument,
 			Message: "Artifact and tags must be provided",
 		}
+	}
+
+	if request.Tags == nil {
+		// Ensure tags is not nil
+		request.Tags = []string{}
 	}
 
 	if err := validateArtifactIdentifier(request.Artifact); err != nil {

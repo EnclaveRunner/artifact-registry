@@ -269,6 +269,7 @@ func TestSetTagsByVersionHash(t *testing.T) {
 	assert.Equal(t, artifact.VersionHash, updated.VersionHash)
 	assert.Contains(t, updated.Tags, "latest")
 	assert.Contains(t, updated.Tags, "stable")
+	assert.NotContains(t, updated.Tags, "v1.0.0")
 
 	// Verify new tags resolve to the same artifact
 	for _, tag := range []string{"latest", "stable"} {
@@ -320,6 +321,7 @@ func TestSetTagsByTag(t *testing.T) {
 	assert.Equal(t, artifact.VersionHash, updated.VersionHash)
 	assert.Contains(t, updated.Tags, "qa")
 	assert.Contains(t, updated.Tags, "production")
+	assert.NotContains(t, updated.Tags, "candidate")
 
 	// Verify new tags can be used to pull the artifact
 	for _, tag := range []string{"qa", "production"} {
@@ -335,34 +337,63 @@ func TestSetTagsByTag(t *testing.T) {
 	}
 }
 
-// TestSetTagsInvalidRequest tests validation for SetTags request fields
-func TestSetTagsInvalidRequest(t *testing.T) {
+func TestSetTagsStealingTags(t *testing.T) {
 	t.Parallel()
 
 	client, startServer := configureServer(t, t.TempDir())
 	go startServer()
 
 	fqn := &proto_gen.PackageName{
-		Namespace: "set-tags-invalid-request-test",
-		Name:      "set-tags-invalid-request-app",
+		Namespace: "set-tags-steal-test",
+		Name:      "app1",
 	}
 
-	_, err := client.SetTags(t.Context(), &proto_gen.SetTagsRequest{
+	artifact1Before := uploadArtifact(
+		t,
+		client,
+		fqn,
+		[]string{"v1.0.0", "latest"},
+		[]byte("app1 content"),
+	)
+
+	artifact2Before := uploadArtifact(
+		t,
+		client,
+		fqn,
+		[]string{"v2.0.0"},
+		[]byte("app2 content"),
+	)
+
+	setTagsReq := &proto_gen.SetTagsRequest{
 		Artifact: &proto_gen.ArtifactIdentifier{
 			Package: fqn,
 			Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
-				VersionHash: "some-hash",
+				VersionHash: artifact2Before.VersionHash,
 			},
 		},
-	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Artifact and tags must be provided")
-
-	_, err = client.SetTags(t.Context(), &proto_gen.SetTagsRequest{
 		Tags: []string{"latest"},
-	})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "Artifact and tags must be provided")
+	}
+
+	artifact2After, err := client.SetTags(t.Context(), setTagsReq)
+	assert.NoError(t, err)
+	assert.NotNil(t, artifact2After)
+	assert.Equal(t, artifact2Before.VersionHash, artifact2After.VersionHash)
+	assert.Contains(t, artifact2After.Tags, "latest")
+	assert.NotContains(t, artifact2After.Tags, "v2.0.0")
+
+	artifact1After, err := client.GetArtifact(
+		t.Context(),
+		&proto_gen.ArtifactIdentifier{
+			Package: fqn,
+			Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
+				VersionHash: artifact1Before.VersionHash,
+			},
+		},
+	)
+	assert.NoError(t, err)
+	assert.NotNil(t, artifact1After)
+	assert.Equal(t, artifact1Before.VersionHash, artifact1After.VersionHash)
+	assert.NotContains(t, artifact1After.Tags, "latest")
 }
 
 // TestSetTagsNonExistentArtifact tests SetTags on unknown artifact

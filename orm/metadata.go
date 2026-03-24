@@ -431,12 +431,29 @@ func (db *DB) SetTags(
 		}
 	}
 
+	_, err := gorm.G[Tag](
+		db.dbGorm,
+	).Where("namespace = ? AND name = ? AND hash = ?", pkg.Namespace, pkg.Name, versionHash).
+		Delete(ctx)
+	if err != nil {
+		return wrapErrorWithDetails(
+			err,
+			"delete existing tags",
+			fmt.Sprintf(
+				"namespace=%q, name=%q, hash=%q",
+				pkg.Namespace,
+				pkg.Name,
+				versionHash,
+			),
+		)
+	}
+
 	//nolint:mnd // 100 is a resonable batch size for tag updates
-	err := db.dbGorm.Clauses(clause.OnConflict{UpdateAll: true}).
-		CreateInBatches(modelTags, 100)
+	err = db.dbGorm.Clauses(clause.OnConflict{UpdateAll: true}).
+		CreateInBatches(modelTags, 100).Error
 
 	return wrapErrorWithDetails(
-		err.Error,
+		err,
 		"set tags",
 		fmt.Sprintf(
 			"namespace=%q, name=%q, hash=%q, tags=%v",
