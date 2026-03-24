@@ -458,7 +458,7 @@ func (db *DB) SetTags(
 			return nil
 		}
 
-		//nolint:mnd // 100 is a resonable batch size for tag updates
+		//nolint:mnd // 100 is a reasonable batch size for tag updates
 		err = tx.WithContext(ctx).Clauses(clause.OnConflict{UpdateAll: true}).
 			CreateInBatches(modelTags, 100).Error
 
