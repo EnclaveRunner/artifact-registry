@@ -461,7 +461,10 @@ func (s *Server) GetArtifact(
 	}, nil
 }
 
-func (s *Server) SetTags(ctx context.Context, request *proto_gen.SetTagsRequest) (*proto_gen.Artifact, error) {
+func (s *Server) SetTags(
+	ctx context.Context,
+	request *proto_gen.SetTagsRequest,
+) (*proto_gen.Artifact, error) {
 	if request.Artifact == nil || request.Tags == nil {
 		log.Error().Msg("SetTagsRequest missing artifact or tags")
 
@@ -479,11 +482,20 @@ func (s *Server) SetTags(ctx context.Context, request *proto_gen.SetTagsRequest)
 
 	var versionHash string
 	if tag, ok := request.Artifact.Identifier.(*proto_gen.ArtifactIdentifier_Tag); ok {
-		artifactMeta, err := s.db.GetArtifactMetaByTag(ctx, request.Artifact.Package, tag.Tag)
+		artifactMeta, err := s.db.GetArtifactMetaByTag(
+			ctx,
+			request.Artifact.Package,
+			tag.Tag,
+		)
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to get artifact by tag for SetTagsRequest")
+			log.Error().
+				Err(err).
+				Msg("Failed to get artifact by tag for SetTagsRequest")
 
-			return nil, wrapServiceError(err, "retrieving artifact by tag for SetTagsRequest")
+			return nil, wrapServiceError(
+				err,
+				"retrieving artifact by tag for SetTagsRequest",
+			)
 		}
 		versionHash = artifactMeta.Hash
 	} else {

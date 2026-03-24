@@ -431,7 +431,10 @@ func (db *DB) SetTags(
 		}
 	}
 
-	err := db.dbGorm.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(modelTags, 100)
+	//nolint:mnd // 100 is a resonable batch size for tag updates
+	err := db.dbGorm.Clauses(clause.OnConflict{UpdateAll: true}).
+		CreateInBatches(modelTags, 100)
+
 	return wrapErrorWithDetails(
 		err.Error,
 		"set tags",

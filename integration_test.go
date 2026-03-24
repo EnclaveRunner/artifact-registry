@@ -245,7 +245,13 @@ func TestSetTagsByVersionHash(t *testing.T) {
 		Namespace: "set-tags-by-hash-test",
 		Name:      "set-tags-app",
 	}
-	artifact := uploadArtifact(t, client, fqn, []string{"v1.0.0"}, []byte("set tags content"))
+	artifact := uploadArtifact(
+		t,
+		client,
+		fqn,
+		[]string{"v1.0.0"},
+		[]byte("set tags content"),
+	)
 
 	setTagsReq := &proto_gen.SetTagsRequest{
 		Artifact: &proto_gen.ArtifactIdentifier{
@@ -290,7 +296,13 @@ func TestSetTagsByTag(t *testing.T) {
 		Namespace: "set-tags-by-tag-test",
 		Name:      "set-tags-tag-app",
 	}
-	artifact := uploadArtifact(t, client, fqn, []string{"candidate"}, []byte("set tags by tag content"))
+	artifact := uploadArtifact(
+		t,
+		client,
+		fqn,
+		[]string{"candidate"},
+		[]byte("set tags by tag content"),
+	)
 
 	setTagsReq := &proto_gen.SetTagsRequest{
 		Artifact: &proto_gen.ArtifactIdentifier{
