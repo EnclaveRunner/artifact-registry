@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func (db *DB) GetArtifactMetaByHash(
@@ -36,9 +37,9 @@ func (db *DB) GetArtifactMetaByHash(
 	artifact, err := gorm.G[Artifact](
 		db.dbGorm,
 	).Preload("Tags", nil).Where(&Artifact{
-		Author: pkg.Namespace,
-		Name:   pkg.Name,
-		Hash:   hash,
+		Namespace: pkg.Namespace,
+		Name:      pkg.Name,
+		Hash:      hash,
 	}).First(ctx)
 	if err != nil {
 		return nil, wrapErrorWithDetails(
@@ -79,9 +80,9 @@ func (db *DB) GetArtifactMetaByTag(
 	}
 
 	tagQuery, err := gorm.G[Tag](db.dbGorm).Where(&Tag{
-		Author:  pkg.Namespace,
-		Name:    pkg.Name,
-		TagName: tag,
+		Namespace: pkg.Namespace,
+		Name:      pkg.Name,
+		TagName:   tag,
 	}).First(ctx)
 	if err != nil {
 		return nil, wrapErrorWithDetails(
@@ -136,8 +137,8 @@ func (db *DB) GetArtifactMetasByFQN(
 	artifacts, err := gorm.G[Artifact](
 		db.dbGorm,
 	).Preload("Tags", nil).Where(&Artifact{
-		Author: pkg.Namespace,
-		Name:   pkg.Name,
+		Namespace: pkg.Namespace,
+		Name:      pkg.Name,
 	}).Find(ctx)
 	if err != nil {
 		return nil, wrapErrorWithDetails(
@@ -189,9 +190,9 @@ func (db *DB) CreateArtifactMeta(
 	err := db.dbGorm.Transaction(func(tx *gorm.DB) error {
 		dbTx := db.UseTransaction(tx)
 		err := gorm.G[Artifact](tx).Create(ctx, &Artifact{
-			Author: pkg.Namespace,
-			Name:   pkg.Name,
-			Hash:   versionHash,
+			Namespace: pkg.Namespace,
+			Name:      pkg.Name,
+			Hash:      versionHash,
 		})
 		if err != nil {
 			return wrapErrorWithDetails(
@@ -240,9 +241,9 @@ func (db *DB) DeleteArtifactMeta(
 	return wrapErrorWithDetails(
 		db.dbGorm.Delete(
 			&Artifact{
-				Author: pkg.Namespace,
-				Name:   pkg.Name,
-				Hash:   versionHash,
+				Namespace: pkg.Namespace,
+				Name:      pkg.Name,
+				Hash:      versionHash,
 			},
 		).Error,
 		"delete artifact metadata",
@@ -289,9 +290,9 @@ func (db *DB) AddTag(
 
 	// Check that artifact exists
 	count, err := gorm.G[Artifact](db.dbGorm).Where(Artifact{
-		Author: pkg.Namespace,
-		Name:   pkg.Name,
-		Hash:   versionHash,
+		Namespace: pkg.Namespace,
+		Name:      pkg.Name,
+		Hash:      versionHash,
 	}).Count(ctx, "*")
 	if err != nil {
 		return wrapErrorWithDetails(
@@ -321,9 +322,9 @@ func (db *DB) addTag(
 	versionHash, tag string,
 ) error {
 	tagObject := Tag{
-		Author:  pkg.Namespace,
-		Name:    pkg.Name,
-		TagName: tag,
+		Namespace: pkg.Namespace,
+		Name:      pkg.Name,
+		TagName:   tag,
 	}
 
 	detailString := fmt.Sprintf(
@@ -382,9 +383,9 @@ func (db *DB) RemoveTag(
 
 	return wrapErrorWithDetails(
 		db.dbGorm.Delete(Tag{
-			Author:  pkg.Namespace,
-			Name:    pkg.Name,
-			TagName: tag,
+			Namespace: pkg.Namespace,
+			Name:      pkg.Name,
+			TagName:   tag,
 		}).Error,
 		"delete tag",
 		fmt.Sprintf(
@@ -394,4 +395,83 @@ func (db *DB) RemoveTag(
 			tag,
 		),
 	)
+}
+
+func (db *DB) SetTags(
+	ctx context.Context,
+	pkg *proto_gen.PackageName,
+	versionHash string,
+	tags []string,
+) error {
+	if pkg == nil {
+		return &BadInputError{
+			Reason: "artifact with nil PackageName",
+		}
+	}
+
+	if versionHash == "" || pkg.Namespace == "" ||
+		pkg.Name == "" {
+		return &BadInputError{
+			Reason: fmt.Sprintf(
+				"All parameters must be provided: namespace=%q, name=%q, hash=%q",
+				pkg.Namespace,
+				pkg.Name,
+				versionHash,
+			),
+		}
+	}
+
+	modelTags := make([]Tag, len(tags))
+	for i, tag := range tags {
+		modelTags[i] = Tag{
+			Namespace: pkg.Namespace,
+			Name:      pkg.Name,
+			Hash:      versionHash,
+			TagName:   tag,
+		}
+	}
+
+	//nolint:wrapcheck // Error already wrapped
+	return db.dbGorm.Transaction(func(tx *gorm.DB) error {
+		_, err := gorm.G[Tag](
+			tx,
+		).Where(Tag{
+			Namespace: pkg.Namespace,
+			Name:      pkg.Name,
+			Hash:      versionHash,
+		}).
+			Delete(ctx)
+		if err != nil {
+			return wrapErrorWithDetails(
+				err,
+				"delete existing tags",
+				fmt.Sprintf(
+					"namespace=%q, name=%q, hash=%q",
+					pkg.Namespace,
+					pkg.Name,
+					versionHash,
+				),
+			)
+		}
+
+		if len(modelTags) == 0 {
+			return nil
+		}
+
+		//nolint:mnd // 100 is a reasonable batch size for tag updates
+		err = tx.WithContext(ctx).Clauses(clause.OnConflict{UpdateAll: true}).
+			CreateInBatches(modelTags, 100).Error
+
+		return wrapErrorWithDetails(
+			err,
+			"set tags",
+			fmt.Sprintf(
+				"namespace=%q, name=%q, hash=%q, tags=%v",
+				pkg.Namespace,
+				pkg.Name,
+				versionHash,
+				tags,
+			),
+		)
+	})
 }

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"slices"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -53,7 +54,7 @@ func (s *Server) QueryArtifacts(
 	for _, a := range artifacts {
 		protoArtifacts = append(protoArtifacts, &proto_gen.Artifact{
 			Package: &proto_gen.PackageName{
-				Namespace: a.Author,
+				Namespace: a.Namespace,
 				Name:      a.Name,
 			},
 			VersionHash: a.Hash,
@@ -406,7 +407,7 @@ func (s *Server) DeleteArtifact(
 
 	result := &proto_gen.Artifact{
 		Package: &proto_gen.PackageName{
-			Namespace: artifactMeta.Author,
+			Namespace: artifactMeta.Namespace,
 			Name:      artifactMeta.Name,
 		},
 		VersionHash: artifactMeta.Hash,
@@ -449,7 +450,7 @@ func (s *Server) GetArtifact(
 
 	return &proto_gen.Artifact{
 		Package: &proto_gen.PackageName{
-			Namespace: artifactMeta.Author,
+			Namespace: artifactMeta.Namespace,
 			Name:      artifactMeta.Name,
 		},
 		VersionHash: artifactMeta.Hash,
@@ -461,114 +462,87 @@ func (s *Server) GetArtifact(
 	}, nil
 }
 
-func (s *Server) AddTag(
+func (s *Server) SetTags(
 	ctx context.Context,
-	req *proto_gen.AddRemoveTagRequest,
+	request *proto_gen.SetTagsRequest,
 ) (*proto_gen.Artifact, error) {
-	err := validateAddRemoveTagRequest(req)
-	if err != nil {
-		log.Error().Err(err).Msg("Invalid AddTag request")
+	if request.Artifact == nil {
+		log.Error().Msg("SetTagsRequest missing artifact")
+
+		return nil, &ServiceError{
+			Code:    codes.InvalidArgument,
+			Message: "Artifact must be provided",
+		}
+	}
+
+	if request.Tags == nil {
+		// Ensure tags is not nil
+		request.Tags = []string{}
+	}
+
+	if slices.Contains(request.Tags, "") {
+		log.Error().Msg("SetTagsRequest contains empty tag")
+
+		return nil, &ServiceError{
+			Code:    codes.InvalidArgument,
+			Message: "Provided an empty tag. Tags cannot be empty strings.",
+		}
+	}
+
+	slices.Sort(request.Tags)
+	request.Tags = slices.Compact(request.Tags)
+
+	if err := validateArtifactIdentifier(request.Artifact); err != nil {
+		log.Error().Err(err).Msg("Invalid artifact identifier in SetTagsRequest")
 
 		return nil, err
 	}
 
-	log.Info().
-		Str("namespace", req.Package.Namespace).
-		Str("name", req.Package.Name).
-		Str("tag", req.Tag).
-		Msg("Tag creation requested")
+	var versionHash string
+	if tag, ok := request.Artifact.Identifier.(*proto_gen.ArtifactIdentifier_Tag); ok {
+		artifactMeta, err := s.db.GetArtifactMetaByTag(
+			ctx,
+			request.Artifact.Package,
+			tag.Tag,
+		)
+		if err != nil {
+			log.Error().
+				Err(err).
+				Msg("Failed to get artifact by tag for SetTagsRequest")
 
-	if s.registry == nil {
-		return nil, newRegistryUnavailableError("adding tag")
+			return nil, wrapServiceError(
+				err,
+				"retrieving artifact by tag for SetTagsRequest",
+			)
+		}
+		versionHash = artifactMeta.Hash
+	} else {
+		versionHash = request.Artifact.GetVersionHash()
+		_, err := s.db.GetArtifactMetaByHash(ctx, request.Artifact.Package, versionHash)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to get artifact by version hash for SetTagsRequest")
+
+			return nil, wrapServiceError(err, "retrieving artifact by version hash for SetTagsRequest")
+		}
+
 	}
 
-	err = s.db.AddTag(ctx, req.Package, req.VersionHash, req.Tag)
+	err := s.db.SetTags(ctx, request.Artifact.Package, versionHash, request.Tags)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to add tag")
+		log.Error().Err(err).Msg("Failed to set tags")
 
-		return nil, wrapServiceError(err, "adding tag to artifact")
+		return nil, wrapServiceError(err, "setting tags on artifact")
 	}
 
-	// Return the artifact
+	// Return the updated artifact
 	id := &proto_gen.ArtifactIdentifier{
-		Package: req.Package,
+		Package: request.Artifact.Package,
 		Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
-			VersionHash: req.VersionHash,
+			VersionHash: versionHash,
 		},
 	}
 
 	return s.GetArtifact(ctx, id)
-}
-
-func (s *Server) RemoveTag(
-	ctx context.Context,
-	req *proto_gen.AddRemoveTagRequest,
-) (*proto_gen.Artifact, error) {
-	err := validateAddRemoveTagRequest(req)
-	if err != nil {
-		log.Error().Err(err).Msg("Invalid RemoveTag request")
-
-		return nil, err
-	}
-
-	log.Info().
-		Str("namespace", req.Package.Namespace).
-		Str("name", req.Package.Name).
-		Str("tag", req.Tag).
-		Str("hash", req.VersionHash).
-		Msg("RemoveTag called")
-
-	if s.registry == nil {
-		return nil, newRegistryUnavailableError("removing tag")
-	}
-
-	// Query the artifact to ensure it exists
-	id := &proto_gen.ArtifactIdentifier{
-		Package: req.Package,
-		Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
-			VersionHash: req.VersionHash,
-		},
-	}
-
-	artifact, err := s.GetArtifact(ctx, id)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to get artifact for tag removal")
-
-		return nil, err
-	}
-
-	// Check if the tag exists on the artifact and remove from list if found
-	// as this will be needed later
-	tagExists := false
-	updatedTags := make([]string, 0, len(artifact.Tags))
-	for _, t := range artifact.Tags {
-		if t == req.Tag {
-			tagExists = true
-		} else {
-			updatedTags = append(updatedTags, t)
-		}
-	}
-	if !tagExists {
-		log.Error().Msg("Tag to remove does not exist on artifact")
-
-		return nil, &ServiceError{
-			Code:    codes.NotFound,
-			Message: "Tag does not exist on artifact",
-			Inner:   nil,
-		}
-	}
-
-	err = s.db.RemoveTag(ctx, req.Package, req.Tag)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to remove tag")
-
-		return nil, wrapServiceError(err, "removing tag from artifact")
-	}
-
-	// Remove tag from artifact response
-	artifact.Tags = updatedTags
-
-	return artifact, nil
 }
 
 func (s *Server) resolveIdentifier(

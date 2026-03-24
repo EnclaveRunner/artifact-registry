@@ -234,6 +234,192 @@ func TestPullArtifactByTag(t *testing.T) {
 	assert.Equal(t, int64(2), retrieved.Metadata.Pulls)
 }
 
+// TestSetTagsByVersionHash tests setting tags using version hash identifier
+func TestSetTagsByVersionHash(t *testing.T) {
+	t.Parallel()
+
+	client, startServer := configureServer(t, t.TempDir())
+	go startServer()
+
+	fqn := &proto_gen.PackageName{
+		Namespace: "set-tags-by-hash-test",
+		Name:      "set-tags-app",
+	}
+	artifact := uploadArtifact(
+		t,
+		client,
+		fqn,
+		[]string{"v1.0.0"},
+		[]byte("set tags content"),
+	)
+
+	setTagsReq := &proto_gen.SetTagsRequest{
+		Artifact: &proto_gen.ArtifactIdentifier{
+			Package: fqn,
+			Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
+				VersionHash: artifact.VersionHash,
+			},
+		},
+		Tags: []string{"latest", "stable"},
+	}
+
+	updated, err := client.SetTags(t.Context(), setTagsReq)
+	assert.NoError(t, err)
+	assert.NotNil(t, updated)
+	assert.Equal(t, artifact.VersionHash, updated.VersionHash)
+	assert.Contains(t, updated.Tags, "latest")
+	assert.Contains(t, updated.Tags, "stable")
+	assert.NotContains(t, updated.Tags, "v1.0.0")
+
+	// Verify new tags resolve to the same artifact
+	for _, tag := range []string{"latest", "stable"} {
+		getReq := &proto_gen.ArtifactIdentifier{
+			Package: fqn,
+			Identifier: &proto_gen.ArtifactIdentifier_Tag{
+				Tag: tag,
+			},
+		}
+
+		retrieved, getErr := client.GetArtifact(t.Context(), getReq)
+		assert.NoError(t, getErr)
+		assert.Equal(t, artifact.VersionHash, retrieved.VersionHash)
+	}
+}
+
+// TestSetTagsByTag tests setting tags using tag identifier
+func TestSetTagsByTag(t *testing.T) {
+	t.Parallel()
+
+	client, startServer := configureServer(t, t.TempDir())
+	go startServer()
+
+	fqn := &proto_gen.PackageName{
+		Namespace: "set-tags-by-tag-test",
+		Name:      "set-tags-tag-app",
+	}
+	artifact := uploadArtifact(
+		t,
+		client,
+		fqn,
+		[]string{"candidate"},
+		[]byte("set tags by tag content"),
+	)
+
+	setTagsReq := &proto_gen.SetTagsRequest{
+		Artifact: &proto_gen.ArtifactIdentifier{
+			Package: fqn,
+			Identifier: &proto_gen.ArtifactIdentifier_Tag{
+				Tag: "candidate",
+			},
+		},
+		Tags: []string{"qa", "production"},
+	}
+
+	updated, err := client.SetTags(t.Context(), setTagsReq)
+	assert.NoError(t, err)
+	assert.NotNil(t, updated)
+	assert.Equal(t, artifact.VersionHash, updated.VersionHash)
+	assert.Contains(t, updated.Tags, "qa")
+	assert.Contains(t, updated.Tags, "production")
+	assert.NotContains(t, updated.Tags, "candidate")
+
+	// Verify new tags can be used to pull the artifact
+	for _, tag := range []string{"qa", "production"} {
+		pullReq := &proto_gen.ArtifactIdentifier{
+			Package: fqn,
+			Identifier: &proto_gen.ArtifactIdentifier_Tag{
+				Tag: tag,
+			},
+		}
+
+		pulled := pullArtifact(t, client, pullReq)
+		assert.Equal(t, []byte("set tags by tag content"), pulled)
+	}
+}
+
+func TestSetTagsStealingTags(t *testing.T) {
+	t.Parallel()
+
+	client, startServer := configureServer(t, t.TempDir())
+	go startServer()
+
+	fqn := &proto_gen.PackageName{
+		Namespace: "set-tags-steal-test",
+		Name:      "app1",
+	}
+
+	artifact1Before := uploadArtifact(
+		t,
+		client,
+		fqn,
+		[]string{"v1.0.0", "latest"},
+		[]byte("app1 content"),
+	)
+
+	artifact2Before := uploadArtifact(
+		t,
+		client,
+		fqn,
+		[]string{"v2.0.0"},
+		[]byte("app2 content"),
+	)
+
+	setTagsReq := &proto_gen.SetTagsRequest{
+		Artifact: &proto_gen.ArtifactIdentifier{
+			Package: fqn,
+			Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
+				VersionHash: artifact2Before.VersionHash,
+			},
+		},
+		Tags: []string{"latest"},
+	}
+
+	artifact2After, err := client.SetTags(t.Context(), setTagsReq)
+	assert.NoError(t, err)
+	assert.NotNil(t, artifact2After)
+	assert.Equal(t, artifact2Before.VersionHash, artifact2After.VersionHash)
+	assert.Contains(t, artifact2After.Tags, "latest")
+	assert.NotContains(t, artifact2After.Tags, "v2.0.0")
+
+	artifact1After, err := client.GetArtifact(
+		t.Context(),
+		&proto_gen.ArtifactIdentifier{
+			Package: fqn,
+			Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
+				VersionHash: artifact1Before.VersionHash,
+			},
+		},
+	)
+	assert.NoError(t, err)
+	assert.NotNil(t, artifact1After)
+	assert.Equal(t, artifact1Before.VersionHash, artifact1After.VersionHash)
+	assert.NotContains(t, artifact1After.Tags, "latest")
+}
+
+// TestSetTagsNonExistentArtifact tests SetTags on unknown artifact
+func TestSetTagsNonExistentArtifact(t *testing.T) {
+	t.Parallel()
+
+	client, startServer := configureServer(t, t.TempDir())
+	go startServer()
+
+	fqn := &proto_gen.PackageName{
+		Namespace: "set-tags-nonexistent-test",
+		Name:      "set-tags-nonexistent-app",
+	}
+
+	_, err := client.SetTags(t.Context(), &proto_gen.SetTagsRequest{
+		Artifact: &proto_gen.ArtifactIdentifier{
+			Package: fqn,
+			Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
+				VersionHash: "missing-hash",
+			},
+		},
+		Tags: []string{"latest"},
+	})
+	assert.Error(t, err)
+}
+
 // TestQueryArtifacts tests artifact querying with different filters
 func TestQueryArtifacts(t *testing.T) {
 	t.Parallel()
@@ -320,135 +506,6 @@ func TestQueryArtifacts(t *testing.T) {
 	assert.Len(t, resp.Artifacts, 1)
 	assert.Equal(t, "query-test-ns1", resp.Artifacts[0].Package.Namespace)
 	assert.Equal(t, "query-app1", resp.Artifacts[0].Package.Name)
-}
-
-// TestAddAndRemoveTags tests tag management operations
-func TestAddAndRemoveTags(t *testing.T) {
-	t.Parallel()
-
-	client, startServer := configureServer(t, t.TempDir())
-	go startServer()
-
-	fqn := &proto_gen.PackageName{
-		Namespace: "tag-test-user",
-		Name:      "tag-test-app",
-	}
-	initialTags := []string{"v1.0.0"}
-	content := []byte("test content")
-
-	artifact := uploadArtifact(t, client, fqn, initialTags, content)
-
-	// Add a new tag
-	addReq := &proto_gen.AddRemoveTagRequest{
-		Package:     fqn,
-		VersionHash: artifact.VersionHash,
-		Tag:         "latest",
-	}
-
-	updated, err := client.AddTag(t.Context(), addReq)
-	assert.NoError(t, err)
-	assert.Contains(t, updated.Tags, "latest")
-	assert.Contains(t, updated.Tags, "v1.0.0")
-	assert.Len(t, updated.Tags, 2)
-
-	// Add another tag
-	addReq.Tag = "stable"
-	updated, err = client.AddTag(t.Context(), addReq)
-	assert.NoError(t, err)
-	assert.Contains(t, updated.Tags, "stable")
-	assert.Len(t, updated.Tags, 3)
-
-	// Remove a tag
-	removeReq := &proto_gen.AddRemoveTagRequest{
-		Package:     fqn,
-		VersionHash: artifact.VersionHash,
-		Tag:         "v1.0.0",
-	}
-
-	updated, err = client.RemoveTag(t.Context(), removeReq)
-	assert.NoError(t, err)
-	assert.NotContains(t, updated.Tags, "v1.0.0")
-	assert.Contains(t, updated.Tags, "latest")
-	assert.Contains(t, updated.Tags, "stable")
-	assert.Len(t, updated.Tags, 2)
-}
-
-func TestDeleteTagFromNonExistentArtifact(t *testing.T) {
-	t.Parallel()
-
-	client, startServer := configureServer(t, t.TempDir())
-	go startServer()
-
-	// Create an artifact
-	fqn := &proto_gen.PackageName{
-		Namespace: "nonexistent-tag-test",
-		Name:      "nonexistent-tag-app",
-	}
-	tags := []string{"v1.0.0"}
-	content := []byte("test content")
-
-	artifact := uploadArtifact(t, client, fqn, tags, content)
-
-	// Delete tag
-	removeReq := &proto_gen.AddRemoveTagRequest{
-		Package:     fqn,
-		VersionHash: "non existent hash",
-		Tag:         "v1.0.0",
-	}
-
-	_, err := client.RemoveTag(t.Context(), removeReq)
-	assert.Error(t, err)
-
-	// Verify original artifact is unaffected
-	getReq := &proto_gen.ArtifactIdentifier{
-		Package: fqn,
-		Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
-			VersionHash: artifact.VersionHash,
-		},
-	}
-	retrieved, err := client.GetArtifact(t.Context(), getReq)
-	assert.NoError(t, err)
-	assert.NotNil(t, retrieved)
-	assert.Contains(t, retrieved.Tags, "v1.0.0")
-
-	// Remove artifact
-	_, err = client.DeleteArtifact(t.Context(), getReq)
-	assert.NoError(t, err)
-}
-
-func TestDeleteTagThatDoesNotExist(t *testing.T) {
-	t.Parallel()
-	// Create an artifact
-	client, startServer := configureServer(t, t.TempDir())
-	go startServer()
-	fqn := &proto_gen.PackageName{
-		Namespace: "nonexistent-tag-test",
-		Name:      "nonexistent-tag-app2",
-	}
-
-	content := []byte("test content")
-	artifact := uploadArtifact(t, client, fqn, nil, content)
-
-	// Delete tag that does not exist
-	removeReq := &proto_gen.AddRemoveTagRequest{
-		Package:     fqn,
-		VersionHash: artifact.VersionHash,
-		Tag:         "nonexistent-tag",
-	}
-
-	_, err := client.RemoveTag(t.Context(), removeReq)
-	assert.Error(t, err)
-
-	// Delete artifact
-	getReq := &proto_gen.ArtifactIdentifier{
-		Package: fqn,
-		Identifier: &proto_gen.ArtifactIdentifier_VersionHash{
-			VersionHash: artifact.VersionHash,
-		},
-	}
-
-	_, err = client.DeleteArtifact(t.Context(), getReq)
-	assert.NoError(t, err)
 }
 
 // TestDeleteArtifact tests artifact deletion
@@ -743,41 +800,6 @@ func TestNonExistentArtifact(t *testing.T) {
 
 	// Try to delete non-existent artifact
 	_, err = client.DeleteArtifact(t.Context(), req)
-	assert.Error(t, err)
-}
-
-// TestInvalidTagOperations tests error cases for tag management
-func TestInvalidTagOperations(t *testing.T) {
-	t.Parallel()
-
-	client, startServer := configureServer(t, t.TempDir())
-	go startServer()
-
-	fqn := &proto_gen.PackageName{
-		Namespace: "invalid-tag-test",
-		Name:      "invalid-tag-app",
-	}
-
-	// Try to add tag to non-existent artifact
-	addReq := &proto_gen.AddRemoveTagRequest{
-		Package:     fqn,
-		VersionHash: "nonexistenthash",
-		Tag:         "latest",
-	}
-
-	_, err := client.AddTag(t.Context(), addReq)
-	assert.Error(t, err)
-
-	// Try to remove tag from non-existent artifact
-	_, err = client.RemoveTag(t.Context(), addReq)
-	assert.Error(t, err)
-
-	// Try to add empty tag
-	artifact := uploadArtifact(t, client, fqn, []string{"v1.0.0"}, []byte("test"))
-	addReq.VersionHash = artifact.VersionHash
-	addReq.Tag = ""
-
-	_, err = client.AddTag(t.Context(), addReq)
 	assert.Error(t, err)
 }
 
