@@ -54,27 +54,3 @@ func validateArtifactIdentifier(id *proto_gen.ArtifactIdentifier) error {
 
 	return nil
 }
-
-func validateAddRemoveTagRequest(req *proto_gen.AddRemoveTagRequest) error {
-	if err := validateFQN(req.Package); err != nil {
-		return err
-	}
-
-	if req.Tag == "" {
-		return &ServiceError{
-			Code:    codes.InvalidArgument,
-			Message: "tag cannot be empty",
-			Inner:   ErrEmptyTag,
-		}
-	}
-
-	if req.VersionHash == "" {
-		return &ServiceError{
-			Code:    codes.InvalidArgument,
-			Message: "versionHash cannot be empty",
-			Inner:   ErrEmptyVersionHash,
-		}
-	}
-
-	return nil
-}
