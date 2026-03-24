@@ -435,7 +435,11 @@ func (db *DB) SetTags(
 	return db.dbGorm.Transaction(func(tx *gorm.DB) error {
 		_, err := gorm.G[Tag](
 			tx,
-		).Where("namespace = ? AND name = ? AND hash = ?", pkg.Namespace, pkg.Name, versionHash).
+		).Where(Tag{
+			Namespace: pkg.Namespace,
+			Name:      pkg.Name,
+			Hash:      versionHash,
+		}).
 			Delete(ctx)
 		if err != nil {
 			return wrapErrorWithDetails(

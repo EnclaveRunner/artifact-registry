@@ -485,7 +485,7 @@ func (s *Server) SetTags(
 
 		return nil, &ServiceError{
 			Code:    codes.InvalidArgument,
-			Message: "Tags cannot be empty",
+			Message: "Provided an empty tag. Tags cannot be empty strings.",
 		}
 	}
 
