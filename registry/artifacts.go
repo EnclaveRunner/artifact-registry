@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"slices"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -478,6 +479,18 @@ func (s *Server) SetTags(
 		// Ensure tags is not nil
 		request.Tags = []string{}
 	}
+
+	if slices.Contains(request.Tags, "") {
+		log.Error().Msg("SetTagsRequest contains empty tag")
+
+		return nil, &ServiceError{
+			Code:    codes.InvalidArgument,
+			Message: "Tags cannot be empty",
+		}
+	}
+
+	slices.Sort(request.Tags)
+	request.Tags = slices.Compact(request.Tags)
 
 	if err := validateArtifactIdentifier(request.Artifact); err != nil {
 		log.Error().Err(err).Msg("Invalid artifact identifier in SetTagsRequest")
