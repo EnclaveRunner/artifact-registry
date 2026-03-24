@@ -431,36 +431,43 @@ func (db *DB) SetTags(
 		}
 	}
 
-	_, err := gorm.G[Tag](
-		db.dbGorm,
-	).Where("namespace = ? AND name = ? AND hash = ?", pkg.Namespace, pkg.Name, versionHash).
-		Delete(ctx)
-	if err != nil {
+	//nolint:wrapcheck // Error already wrapped
+	return db.dbGorm.Transaction(func(tx *gorm.DB) error {
+		_, err := gorm.G[Tag](
+			tx,
+		).Where("namespace = ? AND name = ? AND hash = ?", pkg.Namespace, pkg.Name, versionHash).
+			Delete(ctx)
+		if err != nil {
+			return wrapErrorWithDetails(
+				err,
+				"delete existing tags",
+				fmt.Sprintf(
+					"namespace=%q, name=%q, hash=%q",
+					pkg.Namespace,
+					pkg.Name,
+					versionHash,
+				),
+			)
+		}
+
+		if len(modelTags) == 0 {
+			return nil
+		}
+
+		//nolint:mnd // 100 is a resonable batch size for tag updates
+		err = tx.WithContext(ctx).Clauses(clause.OnConflict{UpdateAll: true}).
+			CreateInBatches(modelTags, 100).Error
+
 		return wrapErrorWithDetails(
 			err,
-			"delete existing tags",
+			"set tags",
 			fmt.Sprintf(
-				"namespace=%q, name=%q, hash=%q",
+				"namespace=%q, name=%q, hash=%q, tags=%v",
 				pkg.Namespace,
 				pkg.Name,
 				versionHash,
+				tags,
 			),
 		)
-	}
-
-	//nolint:mnd // 100 is a resonable batch size for tag updates
-	err = db.dbGorm.WithContext(ctx).Clauses(clause.OnConflict{UpdateAll: true}).
-		CreateInBatches(modelTags, 100).Error
-
-	return wrapErrorWithDetails(
-		err,
-		"set tags",
-		fmt.Sprintf(
-			"namespace=%q, name=%q, hash=%q, tags=%v",
-			pkg.Namespace,
-			pkg.Name,
-			versionHash,
-			tags,
-		),
-	)
+	})
 }

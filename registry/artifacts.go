@@ -471,7 +471,7 @@ func (s *Server) SetTags(
 
 		return nil, &ServiceError{
 			Code:    codes.InvalidArgument,
-			Message: "Artifact and tags must be provided",
+			Message: "Artifact must be provided",
 		}
 	}
 
