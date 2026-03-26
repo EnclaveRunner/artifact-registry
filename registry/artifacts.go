@@ -125,14 +125,22 @@ func (s *Server) PullArtifact(
 
 	switch identifier := req.Identifier.(type) {
 	case *proto_gen.ArtifactIdentifier_VersionHash:
-		artifactMeta, err = s.db.GetArtifactMetaByHash(serv.Context(), req.Package, identifier.VersionHash)
+		artifactMeta, err = s.db.GetArtifactMetaByHash(
+			serv.Context(),
+			req.Package,
+			identifier.VersionHash,
+		)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to get artifact by version hash")
 
 			return wrapServiceError(err, "retrieving artifact by version hash")
 		}
 	case *proto_gen.ArtifactIdentifier_Tag:
-		artifactMeta, err = s.db.GetArtifactMetaByTag(serv.Context(), req.Package, identifier.Tag)
+		artifactMeta, err = s.db.GetArtifactMetaByTag(
+			serv.Context(),
+			req.Package,
+			identifier.Tag,
+		)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to get artifact by tag")
 
@@ -192,7 +200,11 @@ func (s *Server) PullArtifact(
 		Msg("Successfully streamed complete artifact")
 
 	// Increment pull count
-	if err := s.db.IncreasePullCount(serv.Context(), req.Package, versionHash); err != nil {
+	if err := s.db.IncreasePullCount(
+		serv.Context(),
+		req.Package,
+		versionHash,
+	); err != nil {
 		log.Warn().Err(err).Msg("Failed to increment pull count")
 	}
 
@@ -518,11 +530,20 @@ func (s *Server) SetTags(
 		versionHash = artifactMeta.Hash
 	} else {
 		versionHash = request.Artifact.GetVersionHash()
-		_, err := s.db.GetArtifactMetaByHash(ctx, request.Artifact.Package, versionHash)
+		_, err := s.db.GetArtifactMetaByHash(
+			ctx,
+			request.Artifact.Package,
+			versionHash,
+		)
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to get artifact by version hash for SetTagsRequest")
+			log.Error().
+				Err(err).
+				Msg("Failed to get artifact by version hash for SetTagsRequest")
 
-			return nil, wrapServiceError(err, "retrieving artifact by version hash for SetTagsRequest")
+			return nil, wrapServiceError(
+				err,
+				"retrieving artifact by version hash for SetTagsRequest",
+			)
 		}
 
 	}
@@ -559,14 +580,22 @@ func (s *Server) resolveIdentifier(
 	var artifactMeta *orm.Artifact
 	switch identifier := id.Identifier.(type) {
 	case *proto_gen.ArtifactIdentifier_VersionHash:
-		artifactMeta, err = s.db.GetArtifactMetaByHash(ctx, id.Package, identifier.VersionHash)
+		artifactMeta, err = s.db.GetArtifactMetaByHash(
+			ctx,
+			id.Package,
+			identifier.VersionHash,
+		)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to resolve artifact by version hash")
 
 			return nil, wrapServiceError(err, "resolving artifact by version hash")
 		}
 	case *proto_gen.ArtifactIdentifier_Tag:
-		artifactMeta, err = s.db.GetArtifactMetaByTag(ctx, id.Package, identifier.Tag)
+		artifactMeta, err = s.db.GetArtifactMetaByTag(
+			ctx,
+			id.Package,
+			identifier.Tag,
+		)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to resolve artifact by version tag")
 
