@@ -14,7 +14,7 @@ import (
 func main() {
 	cfg := &config.AppConfig{}
 	shareddeps.PopulateAppConfig(
-		cfg, "artifact-registry", "v0.5.0", config.Defaults...,
+		cfg, "artifact-registry", "v0.5.1", config.Defaults...,
 	)
 
 	// initialize gRPC server
