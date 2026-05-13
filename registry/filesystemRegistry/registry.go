@@ -29,10 +29,6 @@ var ErrIllegalPath = errors.New(
 	"provided FQN results in an illegal filepath that lays outside the upload directory",
 )
 
-// directory where artifacts are temporarily stored while they don't have a
-// version hash
-var uploadDir = "./uploads"
-
 // FilesystemRegistry implements the registry interface using simple filesystem
 // storage
 type FilesystemRegistry struct {
@@ -65,11 +61,11 @@ func (r *FilesystemRegistry) StoreArtifact(
 			err,
 		}
 	}
-	uniqueTempFileName := filepath.Join(uploadDir, uuidVal.String()+".tmp")
+	uniqueTempFileName := filepath.Join(r.baseDir, uuidVal.String()+".tmp")
 
 	// Ensure uniqueTempFileName is within the intended directory to prevent file
 	// inclusion
-	absUploadDir, err := filepath.Abs(uploadDir)
+	absUploadDir, err := filepath.Abs(r.baseDir)
 	if err != nil {
 		return "", &IOError{
 			"parsing upload directory path",
